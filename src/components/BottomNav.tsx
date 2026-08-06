@@ -17,20 +17,17 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-md border-t border-slate-800/80 max-w-md mx-auto dir-rtl select-none">
-      <div className="flex items-center justify-around py-2 px-3">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800/80 max-w-md mx-auto dir-rtl select-none">
+      <div className="flex items-center justify-around py-2 px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
 
-          // زر الإنشاء الرئيسي (+) المرتفع في المنتصف
           if (item.isPlus) {
             return (
-              <Link
+              <button
                 key={item.name}
-                href="/"
-                onClick={(e) => {
-                  // التركيز على مربع كتابة المنشور فوق في الصفحة الرئيسية
+                onClick={() => {
                   const textarea = document.querySelector("textarea");
                   if (textarea) {
                     textarea.focus();
@@ -39,34 +36,32 @@ export default function BottomNav() {
                 }}
                 className="flex flex-col items-center justify-center -mt-6 group"
               >
-                <div className="w-13 h-13 bg-gradient-to-tr from-amber-500 via-amber-400 to-amber-300 rounded-full flex items-center justify-center text-slate-950 shadow-lg shadow-amber-500/30 border-4 border-slate-950 group-hover:scale-110 group-active:scale-95 transition-all duration-200">
+                <div className="w-12 h-12 bg-gradient-to-tr from-amber-500 via-amber-400 to-amber-300 rounded-full flex items-center justify-center text-slate-950 shadow-lg shadow-amber-500/30 border-4 border-slate-950 group-hover:scale-110 group-active:scale-95 transition-all duration-200">
                   <PlusCircle className="w-7 h-7 stroke-[2.2]" />
                 </div>
-              </Link>
+              </button>
             );
           }
 
-          // بقية الأيقونات (الرئيسية، استكشف، ريلز، حسابي)
           return (
             <Link
               key={item.name}
               href={item.href}
-              className={`flex flex-col items-center gap-1 transition-all duration-200 relative py-1 px-2.5 rounded-xl ${
+              className={`flex flex-col items-center gap-1 transition-all duration-200 relative py-1 px-3 rounded-xl ${
                 isActive
                   ? "text-amber-400 font-bold scale-105"
                   : "text-slate-400 hover:text-slate-200 font-medium"
               }`}
             >
               <div className={`p-1.5 rounded-xl transition-all ${
-                isActive ? "bg-amber-400/10 text-amber-400 shadow-inner" : ""
+                isActive ? "bg-amber-400/10 text-amber-400" : ""
               }`}>
                 <Icon className={`w-5 h-5 ${isActive ? "stroke-[2.5]" : "stroke-[1.8]"}`} />
               </div>
               <span className="text-[10px] tracking-tight">{item.name}</span>
 
-              {/* مؤشر النقطة المضيئة أسفل الأيقونة النشطة */}
               {isActive && (
-                <span className="absolute -bottom-1 w-1.5 h-1.5 bg-amber-400 rounded-full shadow-sm shadow-amber-400 animate-pulse" />
+                <span className="absolute -bottom-0.5 w-1.5 h-1.5 bg-amber-400 rounded-full shadow-sm shadow-amber-400" />
               )}
             </Link>
           );

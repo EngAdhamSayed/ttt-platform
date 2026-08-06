@@ -20,10 +20,7 @@ import {
   Trash2,
   Edit3,
   Globe,
-  Lock,
-  Users,
-  EyeOff,
-  Sparkles
+  EyeOff
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -33,7 +30,6 @@ interface Post {
   image_url?: string;
   created_at: string;
   user_id: string;
-  privacy?: "public" | "friends" | "private";
 }
 
 export default function HomePage() {
@@ -124,18 +120,18 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-24 dir-rtl font-sans">
       
-      {/* 🔴 Sidebar Overlay Drawer */}
+      {/* 🔴 Sidebar Drawer */}
       {isSidebarOpen && (
         <div className="fixed inset-0 z-50 flex">
           <div 
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm"
             onClick={() => setIsSidebarOpen(false)}
           />
           <div className="relative w-72 bg-slate-900 border-l border-slate-800 p-5 space-y-6 z-50 flex flex-col justify-between">
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-slate-800 pb-4">
                 <div className="flex items-center gap-2">
-                  <img src="/logo.png" alt="TTT Logo" className="w-8 h-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                  <img src="/logo.png" alt="TTT" className="w-8 h-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                   <span className="font-black text-amber-400 text-lg">TTT Platform</span>
                 </div>
                 <button onClick={() => setIsSidebarOpen(false)} className="p-1 text-slate-400 hover:text-white">
@@ -167,7 +163,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* 🔴 Top Header Bar */}
+      {/* 🔴 Header Bar */}
       <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex items-center justify-between max-w-md mx-auto">
         <button 
           onClick={() => setIsSidebarOpen(true)}
@@ -177,12 +173,12 @@ export default function HomePage() {
         </button>
 
         <div className="flex items-center gap-2.5">
-          <img src="/logo.png" alt="TTT Logo" className="w-8 h-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+          <img src="/logo.png" alt="TTT" className="w-8 h-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
           <span className="text-lg font-black text-white tracking-wider">TTT</span>
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <main className="max-w-md mx-auto p-4 space-y-4">
 
         {/* 🔍 Search Bar */}
@@ -197,7 +193,7 @@ export default function HomePage() {
           <Search className="w-4 h-4 text-slate-500 absolute right-3.5 pointer-events-none" />
         </div>
 
-        {/* ✍️ Create Post Card */}
+        {/* ✍️ Create Post */}
         <div className="bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-md space-y-3">
           <form onSubmit={handleCreatePost} className="space-y-3">
             <textarea
@@ -212,14 +208,13 @@ export default function HomePage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => alert("ميزة إضافة الصور ستفعل في الخطوة القادمة!")}
+                  onClick={() => alert("ميزة رفع الصور قادمة!")}
                   className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-amber-400 font-medium px-2 py-1.5 rounded-lg hover:bg-slate-800 transition"
                 >
                   <ImageIcon className="w-4 h-4 text-amber-500" />
                   <span>صورة</span>
                 </button>
 
-                {/* Privacy Selector */}
                 <select
                   value={postPrivacy}
                   onChange={(e) => setPostPrivacy(e.target.value as any)}
@@ -247,7 +242,7 @@ export default function HomePage() {
           </form>
         </div>
 
-        {/* 📰 Feed Posts List */}
+        {/* 📰 Posts Feed */}
         {loading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="w-7 h-7 animate-spin text-amber-500" />
@@ -265,7 +260,7 @@ export default function HomePage() {
             return (
               <article key={post.id} className="bg-slate-900 rounded-2xl p-4 border border-slate-800 space-y-3 shadow-md relative">
                 
-                {/* User & Options Header */}
+                {/* User Header */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 text-amber-400 flex items-center justify-center font-bold text-xs shadow-inner">
@@ -281,7 +276,7 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* ⚙️ Three Dots Menu Button */}
+                  {/* ⚙️ 3 Dots */}
                   <div className="relative">
                     <button
                       onClick={() => setActivePostMenu(isMenuOpen ? null : post.id)}
@@ -290,7 +285,6 @@ export default function HomePage() {
                       <MoreHorizontal className="w-5 h-5" />
                     </button>
 
-                    {/* Dropdown Options Menu */}
                     {isMenuOpen && (
                       <div className="absolute left-0 top-8 w-44 bg-slate-950 border border-slate-800 rounded-xl shadow-xl z-30 py-1 font-semibold text-xs text-slate-300">
                         <button
@@ -306,7 +300,7 @@ export default function HomePage() {
                         </button>
 
                         <button
-                          onClick={() => alert("تم إخفاء هذا المنشور من خلاصتك.")}
+                          onClick={() => alert("تم إخفاء المنشور.")}
                           className="w-full flex items-center gap-2 px-3 py-2 hover:bg-slate-800 text-right transition"
                         >
                           <EyeOff className="w-4 h-4 text-slate-400" />
@@ -325,7 +319,7 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* Edit Post Box OR Normal Content */}
+                {/* Content / Edit Mode */}
                 {isEditing ? (
                   <div className="space-y-2 pt-1">
                     <textarea
@@ -345,7 +339,7 @@ export default function HomePage() {
                         onClick={() => handleSaveEdit(post.id)}
                         className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-slate-950 hover:bg-amber-400"
                       >
-                        حفظ التعديل
+                        حفظ
                       </button>
                     </div>
                   </div>
@@ -355,7 +349,7 @@ export default function HomePage() {
                   </p>
                 )}
 
-                {/* Actions Bar (Likes, Comments, Share) */}
+                {/* Actions */}
                 <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-slate-400 text-xs">
                   <button
                     onClick={() => setLikedPosts((prev) => ({ ...prev, [post.id]: !prev[post.id] }))}
@@ -367,10 +361,7 @@ export default function HomePage() {
                     <span>إعجاب</span>
                   </button>
 
-                  <button 
-                    onClick={() => alert("نافذة التعليقات ستفتح في الخطوة القادمة!")}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-800 hover:text-slate-200 transition font-medium"
-                  >
+                  <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-800 hover:text-slate-200 transition font-medium">
                     <MessageCircle className="w-4 h-4" />
                     <span>تعليق</span>
                   </button>

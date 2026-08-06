@@ -1,15 +1,10 @@
 import type { Metadata } from "next";
-import { Cairo } from "next/font/google";
 import "./globals.css";
-
-const cairo = Cairo({ 
-  subsets: ["arabic", "latin"],
-  weight: ["400", "600", "700", "800"],
-});
+import BottomNav from "@/components/BottomNav";
 
 export const metadata: Metadata = {
-  title: "TTT | شبكة التواصل الاجتماعي",
-  description: "منصة تواصل جديدة من Beta تقدم تجربة حرة، آمنة ومميزة",
+  title: "TTT Platform | منصة التواصل الحرة",
+  description: "منصة تواصل اجتماعي حديثة وحرة",
 };
 
 export default function RootLayout({
@@ -18,9 +13,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ar" dir="rtl">
-      <body className={`${cairo.className} bg-slate-50 text-slate-900 antialiased selection:bg-amber-500 selection:text-white`}>
-        {children}
+    <html lang="ar" dir="rtl" className="dark">
+      <body className="bg-slate-950 text-slate-100 antialiased min-h-screen selection:bg-amber-500 selection:text-slate-950">
+        <div className="max-w-md mx-auto min-h-screen relative border-x border-slate-900/50 shadow-2xl bg-slate-950">
+          {children}
+          <BottomNav />
+        </div>
       </body>
     </html>
   );
