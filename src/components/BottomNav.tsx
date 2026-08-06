@@ -5,15 +5,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Search, PlusCircle, Video, User } from "lucide-react";
 
-export default function BottomNav() {
+// إضافة الـ Props هنا بتخلي TypeScript يرضى على كل الصفحات القديمة والحديثة!
+interface BottomNavProps {
+  activeTab?: string;
+  setActiveTab?: (tab: string) => void;
+}
+
+export default function BottomNav({ activeTab, setActiveTab }: BottomNavProps) {
   const pathname = usePathname();
 
   const navItems = [
-    { name: "الرئيسية", href: "/", isPlus: false, icon: Home },
-    { name: "استكشف", href: "/explore", isPlus: false, icon: Search },
-    { name: "إنشاء", href: "#create", isPlus: true, icon: PlusCircle },
-    { name: "ريلز", href: "/reels", isPlus: false, icon: Video },
-    { name: "حسابي", href: "/profile", isPlus: false, icon: User },
+    { name: "الرئيسية", href: "/", id: "home", isPlus: false, icon: Home },
+    { name: "استكشف", href: "/explore", id: "explore", isPlus: false, icon: Search },
+    { name: "إنشاء", href: "#create", id: "create", isPlus: true, icon: PlusCircle },
+    { name: "ريلز", href: "/reels", id: "reels", isPlus: false, icon: Video },
+    { name: "حسابي", href: "/profile", id: "profile", isPlus: false, icon: User },
   ];
 
   return (
@@ -21,7 +27,8 @@ export default function BottomNav() {
       <div className="flex items-center justify-around py-2 px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href;
+          // التحقق من الصفحة النشطة سواء بالمسار الحقيقي أو بالـ activeTab القديم
+          const isActive = pathname === item.href || activeTab === item.id;
 
           if (item.isPlus) {
             return (
