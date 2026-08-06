@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Image from "next/image";
 import { 
   Menu, 
   Search, 
@@ -26,10 +25,6 @@ interface Post {
   image_url?: string;
   created_at: string;
   user_id: string;
-  profiles?: {
-    full_name?: string;
-    username?: string;
-  };
 }
 
 export default function HomePage() {
@@ -98,7 +93,7 @@ export default function HomePage() {
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-slate-800 pb-4">
                 <div className="flex items-center gap-2">
-                  <Image src="/logo.png" alt="TTT Logo" width={32} height={32} className="object-contain" />
+                  <img src="/logo.png" alt="TTT Logo" className="w-8 h-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                   <span className="font-black text-amber-400 text-lg">TTT Platform</span>
                 </div>
                 <button onClick={() => setIsSidebarOpen(false)} className="p-1 text-slate-400 hover:text-white">
@@ -141,10 +136,8 @@ export default function HomePage() {
         </button>
 
         {/* اللوجو واسم TTT على الشمال */}
-        <div className="flex items-center gap-2.5 dir-ltr">
-          <div className="w-8 h-8 relative flex items-center justify-center">
-            <Image src="/logo.png" alt="TTT Logo" width={32} height={32} className="object-contain" priority />
-          </div>
+        <div className="flex items-center gap-2.5">
+          <img src="/logo.png" alt="TTT Logo" className="w-8 h-8 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
           <span className="text-lg font-black text-white tracking-wider">TTT</span>
         </div>
       </header>
