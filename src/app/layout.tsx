@@ -4,7 +4,7 @@ import BottomNav from "@/components/BottomNav";
 
 export const metadata: Metadata = {
   title: "TTT Platform | منصة التواصل الحرة",
-  description: "منصة تواصل اجتماعي حرة ومتقدمة",
+  description: "منصة تواصل اجتماعي حديثة وحرة",
 };
 
 export default function RootLayout({
@@ -13,9 +13,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ar" dir="rtl" className="dark">
-      <body className="bg-slate-950 text-slate-100 antialiased min-h-screen selection:bg-amber-500 selection:text-slate-950">
-        <div className="max-w-md mx-auto min-h-screen relative border-x border-slate-900 shadow-2xl bg-slate-950">
+    <html lang="ar" dir="rtl">
+      <body className="bg-slate-100 text-slate-800 antialiased min-h-screen">
+        <div className="max-w-md mx-auto min-h-screen relative bg-slate-50 border-x border-slate-200/80 shadow-sm">
           {children}
           <BottomNav />
         </div>
