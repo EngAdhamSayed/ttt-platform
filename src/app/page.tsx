@@ -2,161 +2,250 @@
 
 import React, { useState, useEffect } from "react";
 import { 
-  ImageIcon, Send, Heart, MessageSquare, Share2, 
-  Bookmark, ShieldCheck, Loader2 
+  Heart, 
+  MessageCircle, 
+  Share2, 
+  Image as ImageIcon, 
+  Send, 
+  Loader2, 
+  Bookmark,
+  Sparkles
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import BottomNav from "@/components/BottomNav";
 
 interface Post {
   id: string;
-  created_at: string;
   content: string;
-  author_name: string;
-  author_handle: string;
+  image_url?: string;
+  created_at: string;
+  user_id: string;
+  profiles?: {
+    full_name?: string;
+    username?: string;
+    avatar_url?: string;
+  };
 }
 
 export default function HomePage() {
-  const [postText, setPostText] = useState("");
   const [posts, setPosts] = useState<Post[]>([]);
+  const [newPostContent, setNewPostContent] = useState("");
   const [loading, setLoading] = useState(true);
-  const [isPosting, setIsPosting] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
 
-  // جلب المنشورات من Supabase
-  const fetchPosts = async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("posts")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (!error && data) {
-      setPosts(data);
-    }
-    setLoading(false);
-  };
-
+  // جلب المنشورات عند تحميل الصفحة
   useEffect(() => {
     fetchPosts();
   }, []);
 
-  // إنشاء منشور جديد
-  const handleCreatePost = async () => {
-    if (!postText.trim()) return;
-    setIsPosting(true);
+  const fetchPosts = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("posts")
+      .select(`
+        id,
+        content,
+        image_url,
+        created_at,
+        user_id
+      `)
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      setPosts(data as Post[]);
+    }
+    setLoading(false);
+  };
+
+  // نشر منشور جديد
+  const handleCreatePost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPostContent.trim()) return;
+
+    setPosting(true);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      alert("يرجى تسجيل الدخول أولاً لنشر منشور جديد!");
+      setPosting(false);
+      return;
+    }
 
     const { error } = await supabase.from("posts").insert([
       {
-        content: postText,
-        author_name: "أدهم سيدي",
-        author_handle: "@adham_sayed",
+        user_id: user.id,
+        content: newPostContent.trim(),
       },
     ]);
 
-    if (!error) {
-      setPostText("");
-      fetchPosts();
+    if (error) {
+      alert("حدث خطأ أثناء نشر المشاركة، يرجى المحاولة لاحقاً.");
     } else {
-      alert("حدث خطأ أثناء النشر، تأكد من إعداد Supabase");
+      setNewPostContent("");
+      fetchPosts(); // إعادة جلب البوستات لتحديث القائمة
     }
-    setIsPosting(false);
+    setPosting(false);
+  };
+
+  const toggleLike = (postId: string) => {
+    setLikedPosts((prev) => ({
+      ...prev,
+      [postId]: !prev[postId],
+    }));
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 pb-20">
+    <div className="min-h-screen bg-slate-100 text-slate-800 pb-20 dir-rtl font-sans">
       
-      {/* Top Header */}
-      <header className="sticky top-0 z-20 backdrop-blur-md bg-white/90 border-b border-slate-200/80 px-4 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center font-extrabold text-white text-lg shadow-md shadow-amber-500/20">
+      {/* Top Header Bar */}
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 py-3 flex items-center justify-between max-w-md mx-auto">
+        <div className="flex items-center gap-2">
+          <div className="w-9 h-9 bg-amber-500 rounded-xl flex items-center justify-center font-black text-white text-lg shadow-sm">
             T
           </div>
           <div>
-            <h1 className="text-lg font-black tracking-wider text-slate-900 leading-tight">TTT</h1>
-            <p className="text-[10px] text-slate-500 font-medium">إحدى منصات Beta</p>
+            <h1 className="text-base font-black text-slate-900 leading-none">TTT</h1>
+            <span className="text-[10px] text-slate-400 font-semibold">منصة التواصل الحرة</span>
           </div>
         </div>
-
-        <div className="flex items-center gap-1.5 text-[11px] bg-emerald-50 text-emerald-700 font-semibold px-2.5 py-1 rounded-full border border-emerald-200">
-          <ShieldCheck className="w-3.5 h-3.5" />
-          <span>آمن وبدون تتبع</span>
+        
+        <div className="flex items-center gap-1 bg-amber-50 text-amber-700 px-2.5 py-1 rounded-full text-[11px] font-bold border border-amber-200/60">
+          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+          <span>الرئيسية</span>
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="max-w-md mx-auto p-3 space-y-3">
-        
-        {/* Create Post Box */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
-          <textarea
-            value={postText}
-            onChange={(e) => setPostText(e.target.value)}
-            placeholder="شارِك أفكارك بحرية ورتّب أفكارك..."
-            className="w-full bg-slate-50/50 text-slate-800 placeholder-slate-400 resize-none border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 text-sm leading-relaxed transition"
-            rows={3}
-          />
-          <div className="flex items-center justify-between pt-1">
-            <button className="text-slate-500 hover:text-amber-600 transition flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-lg hover:bg-slate-50">
-              <ImageIcon className="w-4 h-4 text-amber-500" />
-              <span>إضافة صورة</span>
-            </button>
-            <button 
-              onClick={handleCreatePost}
-              disabled={!postText.trim() || isPosting}
-              className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2 rounded-xl text-xs transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-md shadow-amber-500/20"
-            >
-              {isPosting ? <Loader2 className="w-4 h-4 animate-spin" /> : (
-                <>
-                  <span>نشر</span>
-                  <Send className="w-3.5 h-3.5 rotate-180" />
-                </>
-              )}
-            </button>
-          </div>
+      {/* Main Content Area */}
+      <main className="max-w-md mx-auto p-4 space-y-4">
+
+        {/* Create Post Input Card */}
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+          <form onSubmit={handleCreatePost} className="space-y-3">
+            <textarea
+              rows={3}
+              value={newPostContent}
+              onChange={(e) => setNewPostContent(e.target.value)}
+              placeholder="شارِك أفكارك بحرية ورأيك مع المجتمع..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:bg-white transition resize-none text-right"
+            />
+            
+            <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => alert("ميزة رفع الصور ستكتمل في التحديث القادم!")}
+                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-amber-600 font-semibold px-2 py-1 rounded-lg hover:bg-slate-50 transition"
+              >
+                <ImageIcon className="w-4 h-4 text-amber-500" />
+                <span>إضافة صورة</span>
+              </button>
+
+              <button
+                type="submit"
+                disabled={posting || !newPostContent.trim()}
+                className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-sm transition flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {posting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <span>نشر</span>
+                    <Send className="w-3.5 h-3.5 rotate-180" />
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
         </div>
 
-        {/* Posts Feed */}
+        {/* Feed Posts List */}
         {loading ? (
-          <div className="text-center py-8 text-slate-400 flex items-center justify-center gap-2 text-xs">
-            <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
-            <span>جاري تحميل المنشورات...</span>
+          <div className="flex flex-col items-center justify-center py-12 space-y-3">
+            <Loader2 className="w-7 h-7 animate-spin text-amber-500" />
+            <p className="text-xs font-semibold text-slate-400">جاري تحميل المنشورات...</p>
           </div>
         ) : posts.length === 0 ? (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center text-slate-500 text-xs">
-            لا توجد منشورات بعد، كن أول من ينشر على TTT! 🚀
+          <div className="bg-white rounded-2xl p-8 text-center space-y-2 border border-slate-200/80">
+            <p className="text-sm font-bold text-slate-700">لا توجد منشورات حالياً</p>
+            <p className="text-xs text-slate-400">كن أول من يشارك فكرته وينشر منشوراً جديداً!</p>
           </div>
         ) : (
-          posts.map((post) => (
-            <div key={post.id} className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-500 to-amber-300 flex items-center justify-center font-extrabold text-white text-xs shadow-sm">
-                    {post.author_name[0]}
+          posts.map((post) => {
+            const isLiked = likedPosts[post.id] || false;
+            return (
+              <article 
+                key={post.id} 
+                className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3"
+              >
+                {/* User Info Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-full bg-slate-800 text-amber-400 flex items-center justify-center font-bold text-xs shadow-sm">
+                      {post.profiles?.full_name ? post.profiles.full_name.charAt(0) : "م"}
+                    </div>
+                    <div className="text-right">
+                      <h3 className="text-xs font-bold text-slate-900 leading-tight">
+                        {post.profiles?.full_name || "مستخدم TTT"}
+                      </h3>
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        @{post.profiles?.username || "user"}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">{post.author_name}</h4>
-                    <p className="text-[10px] text-slate-400 dir-ltr text-right">{post.author_handle}</p>
-                  </div>
+                  
+                  <span className="text-[10px] text-slate-400 font-medium">
+                    {new Date(post.created_at).toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
-                <span className="text-[10px] text-slate-400">
-                  {new Date(post.created_at).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-              <p className="text-xs text-slate-700 leading-relaxed font-normal">{post.content}</p>
-              <div className="flex items-center justify-between border-t border-slate-100 pt-2.5 text-slate-500 text-xs font-medium">
-                <button className="flex items-center gap-1 hover:text-rose-500 transition"><Heart className="w-4 h-4" /><span className="text-[11px]">إعجاب</span></button>
-                <button className="flex items-center gap-1 hover:text-amber-600 transition"><MessageSquare className="w-4 h-4" /><span className="text-[11px]">تعليق</span></button>
-                <button className="flex items-center gap-1 hover:text-blue-500 transition"><Share2 className="w-4 h-4" /><span className="text-[11px]">مشاركة</span></button>
-                <button className="flex items-center gap-1 hover:text-amber-600 transition"><Bookmark className="w-4 h-4" /></button>
-              </div>
-            </div>
-          ))
+
+                {/* Post Text Content */}
+                <p className="text-xs text-slate-700 leading-relaxed text-right whitespace-pre-line">
+                  {post.content}
+                </p>
+
+                {/* Post Image (If Exists) */}
+                {post.image_url && (
+                  <div className="rounded-xl overflow-hidden border border-slate-100">
+                    <img 
+                      src={post.image_url} 
+                      alt="مرفق المنشور" 
+                      className="w-full h-auto object-cover max-h-72" 
+                    />
+                  </div>
+                )}
+
+                {/* Actions Bar */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-slate-500 text-xs">
+                  <button
+                    onClick={() => toggleLike(post.id)}
+                    className={`flex items-center gap-1.5 font-medium px-2 py-1 rounded-lg transition ${
+                      isLiked ? "text-rose-500 bg-rose-50" : "hover:bg-slate-50"
+                    }`}
+                  >
+                    <Heart className={`w-4 h-4 ${isLiked ? "fill-rose-500" : ""}`} />
+                    <span>إعجاب</span>
+                  </button>
+
+                  <button className="flex items-center gap-1.5 font-medium px-2 py-1 rounded-lg hover:bg-slate-50 transition">
+                    <MessageCircle className="w-4 h-4" />
+                    <span>تعليق</span>
+                  </button>
+
+                  <button className="flex items-center gap-1.5 font-medium px-2 py-1 rounded-lg hover:bg-slate-50 transition">
+                    <Share2 className="w-4 h-4" />
+                    <span>مشاركة</span>
+                  </button>
+
+                  <button className="p-1 rounded-lg hover:bg-slate-50 transition">
+                    <Bookmark className="w-4 h-4 text-slate-400" />
+                  </button>
+                </div>
+
+              </article>
+            );
+          })
         )}
 
       </main>
-
-      {/* استخدام المكون السحري للتنقل السلس */}
-      <BottomNav activeTab="home" />
 
     </div>
   );
