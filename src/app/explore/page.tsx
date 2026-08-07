@@ -1,191 +1,93 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Search, Loader2, UserPlus, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { Search, Loader2, UserPlus, Check } from "lucide-react";
 
 interface UserProfile {
   id: string;
+  user_number_id: string;
   full_name: string | null;
   avatar_url: string | null;
-  bio: string | null;
-  is_verified?: boolean;
-  role?: string;
-}
-
-interface PostItem {
-  id: string;
-  content: string;
-  created_at: string;
-  profiles: UserProfile | null;
+  role: string | null;
 }
 
 export default function ExplorePage() {
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [postsResults, setPostsResults] = useState<PostItem[]>([]);
-  const [usersResults, setUsersResults] = useState<UserProfile[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [sentRequests, setSentRequests] = useState<Record<string, boolean>>({});
 
-  const handleSearch = useCallback(async (query: string) => {
-    if (!query.trim()) {
-      setPostsResults([]);
-      setUsersResults([]);
-      return;
-    }
-
+  const fetchUsers = useCallback(async (query = "") => {
     setLoading(true);
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
 
-    const { data: posts } = await supabase
-      .from("posts")
-      .select(`id, content, created_at, profiles:user_id(id, full_name, avatar_url, bio, is_verified, role)`)
-      .ilike("content", `%${query}%`)
-      .limit(10);
+    let req = supabase.from("profiles").select("id, user_number_id, full_name, avatar_url, role");
+    if (currentUser) req = req.neq("id", currentUser.id);
+    if (query.trim()) req = req.or(`full_name.ilike.%${query}%,user_number_id.ilike.%${query}%`);
 
-    const { data: users } = await supabase
-      .from("profiles")
-      .select(`id, full_name, avatar_url, bio, is_verified, role`)
-      .ilike("full_name", `%${query}%`)
-      .limit(10);
-
-    if (posts) setPostsResults(posts as unknown as PostItem[]);
-    if (users) setUsersResults(users as UserProfile[]);
-
+    const { data } = await req.limit(20);
+    if (data) setUsers(data as UserProfile[]);
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      handleSearch(searchQuery);
-    }, 400);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-    return () => clearTimeout(timer);
-  }, [searchQuery, handleSearch]);
-
-  const handleSendFriendRequest = async (receiverId: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    // فحص هل المستلم هو الأدمن/مؤسس المنصة
-    const { data: targetUser } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", receiverId)
-      .single();
-
-    if (targetUser?.role === 'admin') {
-      alert("لا يمكنك إرسال طلب صداقة لمؤسس المنصة، يمكنك متابعة منشوراته العامة فقط! 🛡️");
+  const handleSendRequest = async (receiverId: string, role: string | null) => {
+    if (role === "admin") {
+      alert("لا يمكنك إرسال طلب صداقة لمطور ومؤسس المنصة 🛡️");
       return;
     }
 
-    const { error } = await supabase.from("friendships").insert([
-      { sender_id: user.id, receiver_id: receiverId, status: "pending" },
-    ]);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-    if (!error) {
-      alert("تم إرسال طلب الصداقة بنجاح!");
-    } else {
-      alert("تعذر إرسال الطلب أو تم إرساله سابقاً.");
-    }
+    const { error } = await supabase.from("friendships").insert([{ sender_id: user.id, receiver_id: receiverId, status: "pending" }]);
+    if (!error) setSentRequests((prev) => ({ ...prev, [receiverId]: true }));
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 text-right dir-rtl font-sans pb-24">
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm -mx-4 -mt-4 mb-4">
-        <h1 className="text-lg font-black text-slate-900">استكشف</h1>
-      </header>
-
-      <main className="max-w-md mx-auto space-y-4">
-        <div className="relative flex items-center">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-24 dir-rtl font-sans">
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3 shadow-sm space-y-3">
+        <h1 className="text-base font-black text-slate-900 text-right">استكشاف الأعضاء والبحث</h1>
+        <div className="relative">
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="ابحث عن أشخاص، مجموعات، أو منشورات..."
-            className="w-full bg-white border border-slate-200 text-slate-800 text-xs rounded-2xl pr-10 pl-4 py-3 focus:outline-none focus:border-blue-600 transition text-right shadow-sm"
+            onChange={(e) => { setSearchQuery(e.target.value); fetchUsers(e.target.value); }}
+            placeholder="ابحث بالاسم أو بـ معرف الحساب #ID..."
+            className="w-full bg-slate-100 border border-slate-200 rounded-2xl py-2.5 px-4 pr-10 text-xs focus:outline-none focus:border-orange-500 text-right"
           />
-          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 pointer-events-none" />
+          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-3" />
         </div>
+      </header>
 
+      <main className="max-w-md mx-auto p-4 space-y-3">
         {loading ? (
-          <div className="flex justify-center py-10">
-            <Loader2 className="w-7 h-7 animate-spin text-blue-600" />
-          </div>
-        ) : !searchQuery.trim() ? (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center shadow-sm">
-            <p className="text-xs text-slate-500 font-medium">
-              ابدأ البحث لاستكشاف المحتوى والأصدقاء في المنصة
-            </p>
-          </div>
-        ) : postsResults.length === 0 && usersResults.length === 0 ? (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center shadow-sm">
-            <p className="text-xs text-slate-500 font-medium">
-              لم يتم العثور على نتائج تطابق هذا البحث
-            </p>
-          </div>
+          <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-orange-500" /></div>
         ) : (
-          <div className="space-y-4">
-            {usersResults.length > 0 && (
-              <section className="space-y-2">
-                <h2 className="text-xs font-bold text-slate-600">المستخدمين</h2>
-                <div className="space-y-2">
-                  {usersResults.map((usr) => (
-                    <div key={usr.id} className="bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-800 text-amber-400 font-bold flex items-center justify-center text-xs overflow-hidden">
-                          {usr.avatar_url ? (
-                            <img src={usr.avatar_url} alt={usr.full_name || "User"} className="w-full h-full object-cover" />
-                          ) : (
-                            usr.full_name?.charAt(0).toUpperCase() || "U"
-                          )}
-                        </div>
-                        <div className="text-right">
-                          <div className="flex items-center gap-1">
-                            <h3 className="text-xs font-bold text-slate-900">{usr.full_name}</h3>
-                            {usr.is_verified && (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 fill-blue-500 text-white" />
-                            )}
-                          </div>
-                          {usr.bio && <p className="text-[10px] text-slate-400 truncate max-w-36">{usr.bio}</p>}
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => handleSendFriendRequest(usr.id)}
-                        className="bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1"
-                      >
-                        <UserPlus className="w-3.5 h-3.5" />
-                        <span>إضافة</span>
-                      </button>
-                    </div>
-                  ))}
+          users.map((profile) => (
+            <div key={profile.id} className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-slate-900 text-amber-400 font-bold flex items-center justify-center text-xs overflow-hidden">
+                  {profile.avatar_url ? <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" /> : profile.full_name?.charAt(0)}
                 </div>
-              </section>
-            )}
-
-            {postsResults.length > 0 && (
-              <section className="space-y-2">
-                <h2 className="text-xs font-bold text-slate-600">المنشورات</h2>
-                <div className="space-y-2">
-                  {postsResults.map((post) => (
-                    <article key={post.id} className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm space-y-2 text-right">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-slate-800 text-amber-400 font-bold flex items-center justify-center text-xs">
-                          {post.profiles?.full_name?.charAt(0) || "U"}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <h3 className="text-xs font-bold text-slate-900">{post.profiles?.full_name || "مستخدم TTT"}</h3>
-                          {post.profiles?.is_verified && (
-                            <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 fill-blue-500 text-white" />
-                          )}
-                        </div>
-                      </div>
-                      <p className="text-xs text-slate-800 whitespace-pre-line">{post.content}</p>
-                    </article>
-                  ))}
+                <div className="text-right">
+                  <h3 className="text-xs font-bold text-slate-900">{profile.full_name}</h3>
+                  <span className="text-[10px] text-slate-400 font-mono">#{profile.user_number_id}</span>
                 </div>
-              </section>
-            )}
-          </div>
+              </div>
+
+              <button
+                onClick={() => handleSendRequest(profile.id, profile.role)}
+                disabled={sentRequests[profile.id]}
+                className="bg-orange-500 text-white font-bold p-2.5 rounded-xl text-xs flex items-center gap-1 disabled:bg-emerald-500 transition shadow-sm"
+              >
+                {sentRequests[profile.id] ? <Check className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                <span>{sentRequests[profile.id] ? "تم الطلب" : "إضافة"}</span>
+              </button>
+            </div>
+          ))
         )}
       </main>
     </div>

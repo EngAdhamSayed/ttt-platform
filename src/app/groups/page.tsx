@@ -1,73 +1,84 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Search, Loader2, UsersRound } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { Users, Loader2, Plus } from "lucide-react";
 
 interface GroupItem {
   id: string;
-  name: string;
-  privacy: string;
+  title: string;
+  created_at: string;
 }
 
 export default function GroupsPage() {
   const [groups, setGroups] = useState<GroupItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [groupTitle, setGroupTitle] = useState("");
 
-  useEffect(() => {
-    let active = true;
+  const fetchGroups = async () => {
+    setLoading(true);
+    const { data } = await supabase.from("conversations").select("*").eq("is_group", true);
+    if (data) setGroups(data as GroupItem[]);
+    setLoading(false);
+  };
 
-    const fetchGroups = async () => {
-      setLoading(true);
-      const { data } = await supabase.from("groups").select("*");
-      if (active) {
-        if (data) setGroups(data as GroupItem[]);
-        setLoading(false);
-      }
-    };
+  useEffect(() => { fetchGroups(); }, []);
 
-    void fetchGroups();
+  const handleCreateGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!groupTitle.trim()) return;
 
-    return () => {
-      active = false;
-    };
-  }, []);
+    const { error } = await supabase.from("conversations").insert([{ title: groupTitle.trim(), is_group: true }]);
+    if (!error) {
+      setGroupTitle("");
+      setShowModal(false);
+      fetchGroups();
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-slate-100 pb-24 text-slate-900 dir-rtl font-sans">
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <h1 className="text-lg font-black text-slate-900">المجموعات</h1>
-        <Search className="h-5 w-5 text-slate-700" />
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-24 dir-rtl font-sans">
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3 flex justify-between items-center shadow-sm">
+        <h1 className="text-base font-black text-slate-900">المجموعات والمجتمعات</h1>
+        <button onClick={() => setShowModal(true)} className="bg-orange-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1"><Plus className="w-4 h-4" /><span>مجموعة جديدة</span></button>
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-4 p-4">
-        <div className="rounded-[1.25rem] border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="mb-3 flex items-center gap-2 text-slate-900">
-            <UsersRound className="h-4 w-4 text-blue-600" />
-            <h2 className="text-sm font-bold">المجموعات المقترحة</h2>
+      <main className="max-w-md mx-auto p-4 space-y-3">
+        {loading ? (
+          <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-orange-500" /></div>
+        ) : groups.length === 0 ? (
+          <div className="bg-white p-8 rounded-2xl text-center text-xs text-slate-400 border border-slate-200 flex flex-col items-center gap-2">
+            <Users className="w-8 h-8 text-slate-300" />
+            <span>لا توجد مجموعات متاحة حالياً.</span>
           </div>
-
-          {loading ? (
-            <div className="flex justify-center py-10">
-              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-            </div>
-          ) : groups.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center text-xs text-slate-400">
-              لا توجد مجموعات متاحة حالياً
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {groups.map((group) => (
-                <div key={group.id} className="space-y-2 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-3 text-right shadow-sm">
-                  <h3 className="line-clamp-1 text-xs font-bold text-slate-900">{group.name}</h3>
-                  <p className="text-[10px] text-slate-400">{group.privacy}</p>
-                  <button className="w-full rounded-xl bg-blue-50 py-1.5 text-xs font-bold text-blue-600">انضمام</button>
+        ) : (
+          groups.map((group) => (
+            <div key={group.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-orange-100 text-orange-600 font-bold flex items-center justify-center text-sm"><Users className="w-5 h-5" /></div>
+                <div className="text-right">
+                  <h3 className="text-xs font-bold text-slate-900">{group.title}</h3>
+                  <span className="text-[10px] text-slate-400">مجموعة عامة</span>
                 </div>
-              ))}
+              </div>
             </div>
-          )}
-        </div>
+          ))
+        )}
       </main>
+
+      {showModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-5 w-full max-w-xs space-y-4 text-right">
+            <h3 className="text-sm font-bold text-slate-900">إنشاء مجموعة جديدة</h3>
+            <input type="text" value={groupTitle} onChange={(e) => setGroupTitle(e.target.value)} placeholder="اسم المجموعة..." className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-right" />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowModal(false)} className="px-3 py-1.5 text-xs text-slate-500 font-bold">إلغاء</button>
+              <button onClick={handleCreateGroup} className="bg-orange-500 text-white text-xs font-bold px-4 py-1.5 rounded-xl">إنشاء</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

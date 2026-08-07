@@ -1,85 +1,104 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { Loader2, MessageSquare } from "lucide-react";
-import Image from "next/image";
+import { Loader2, Send, MessageCircle, Image } from "lucide-react";
 
-interface UserFriend {
+interface MessageItem {
   id: string;
-  full_name: string | null;
-  avatar_url: string | null;
+  content: string;
+  sender_id: string;
+  created_at: string;
 }
 
-const avatarFallback = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80";
-
 export default function MessagesPage() {
-  const [friends, setFriends] = useState<UserFriend[]>([]);
+  const [messages, setMessages] = useState<MessageItem[]>([]);
+  const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-
-    const loadFriends = async () => {
-      setLoading(true);
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user || !active) {
-        if (active) setLoading(false);
-        return;
-      }
-
-      const { data } = await supabase.from("profiles").select("id, full_name, avatar_url").neq("id", user.id);
-
-      if (active) {
-        if (data) setFriends(data as UserFriend[]);
-        setLoading(false);
-      }
-    };
-
-    void loadFriends();
-
-    return () => {
-      active = false;
-    };
+  const fetchMessages = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setCurrentUserId(user.id);
+      const { data } = await supabase.from("messages").select("*").order("created_at", { ascending: true });
+      if (data) setMessages(data as MessageItem[]);
+    }
+    setLoading(false);
   }, []);
 
+  useEffect(() => {
+    fetchMessages();
+
+    // Subscribe to Realtime Messages
+    const channel = supabase
+      .channel("public:messages")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (payload) => {
+        setMessages((prev) => [...prev, payload.new as MessageItem]);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchMessages]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !currentUserId) return;
+
+    const { data: conv } = await supabase.from("conversations").select("id").limit(1).single();
+    let conversationId = conv?.id;
+
+    if (!conversationId) {
+      const { data: newConv } = await supabase.from("conversations").insert([{ is_group: false }]).select().single();
+      conversationId = newConv?.id;
+    }
+
+    if (conversationId) {
+      await supabase.from("messages").insert([{ conversation_id: conversationId, sender_id: currentUserId, content: newMessage.trim() }]);
+      setNewMessage("");
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-100 pb-24 dir-rtl font-sans">
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <h1 className="text-lg font-black text-slate-900">المحادثات والرسائل</h1>
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-24 dir-rtl font-sans flex flex-col justify-between">
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3 shadow-sm text-right">
+        <h1 className="text-base font-black text-slate-900 flex items-center gap-2">
+          <MessageCircle className="w-5 h-5 text-orange-500" />
+          <span>المحادثات والرسائل الفورية</span>
+        </h1>
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-4 p-4">
+      <main className="max-w-md mx-auto w-full p-4 space-y-3 flex-1 overflow-y-auto">
         {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-7 w-7 animate-spin text-blue-600" />
-          </div>
-        ) : friends.length === 0 ? (
-          <div className="rounded-[1.5rem] border border-slate-200 bg-white p-8 text-center text-xs text-slate-400 shadow-sm">
-            لا يوجد أصدقاء متاحون للمحادثة حالياً
-          </div>
+          <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-orange-500" /></div>
+        ) : messages.length === 0 ? (
+          <div className="bg-white p-8 rounded-2xl text-center text-xs text-slate-400 border border-slate-200">لا توجد رسائل سابقة، ابدأ المحادثة الآن!</div>
         ) : (
-          <div className="space-y-2">
-            {friends.map((friend) => (
-              <div
-                key={friend.id}
-                className="flex items-center gap-3 rounded-[1.25rem] border border-slate-200/80 bg-white p-3 shadow-sm transition hover:bg-slate-50"
-              >
-                <div className="relative h-11 w-11 overflow-hidden rounded-full bg-slate-800 text-xs font-bold text-amber-400">
-                  <Image src={friend.avatar_url || avatarFallback} alt="Avatar" fill unoptimized className="object-cover" />
+          messages.map((msg) => {
+            const isMe = msg.sender_id === currentUserId;
+            return (
+              <div key={msg.id} className={`flex ${isMe ? "justify-start" : "justify-end"}`}>
+                <div className={`max-w-[75%] p-3 rounded-2xl text-xs leading-relaxed ${isMe ? "bg-orange-500 text-white rounded-tr-none" : "bg-white border border-slate-200 text-slate-800 rounded-tl-none"}`}>
+                  {msg.content}
                 </div>
-                <div className="flex-1 text-right">
-                  <h3 className="text-xs font-bold text-slate-900">{friend.full_name}</h3>
-                  <p className="text-[10px] text-slate-400">انقر لفتح المحادثة</p>
-                </div>
-                <MessageSquare className="h-4 w-4 text-slate-400" />
               </div>
-            ))}
-          </div>
+            );
+          })
         )}
       </main>
+
+      <footer className="sticky bottom-16 bg-white border-t border-slate-200 p-3 max-w-md mx-auto w-full">
+        <form onSubmit={handleSendMessage} className="flex gap-2">
+          <input
+            type="text"
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="اكتب رسالتك..."
+            className="flex-1 bg-slate-100 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs focus:outline-none focus:border-orange-500 text-right"
+          />
+          <button type="submit" disabled={!newMessage.trim()} className="bg-orange-500 text-white p-2.5 rounded-2xl disabled:opacity-50"><Send className="w-4 h-4" /></button>
+        </form>
+      </footer>
     </div>
   );
 }

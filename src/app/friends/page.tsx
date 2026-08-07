@@ -1,97 +1,77 @@
 "use client";
 
-import React from "react";
-import { Search, UserPlus, CheckCircle2 } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
+import { Loader2, UserCheck, UserX, Users } from "lucide-react";
+
+interface FriendshipItem {
+  id: string;
+  sender_id: string;
+  profiles: { id: string; full_name: string | null; avatar_url: string | null; user_number_id: string | null } | null;
+}
 
 export default function FriendsPage() {
-  const friendRequests = [
-    { id: 1, name: "Mohamed Haseen", time: "2d", mutual: "1 صديق مشترك", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150" },
-    { id: 2, name: "Abd Elrahman Bakr", time: "3d", mutual: "3 أصدقاء مشتركون", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150" }
-  ];
+  const [requests, setRequests] = useState<FriendshipItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const suggestions = [
-    { id: 101, name: "شهد كمال", mutual: "2 أصدقاء مشتركون", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150" },
-    { id: 102, name: "Marwan Mohamed", mutual: "2 أصدقاء مشتركون", avatar: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150" },
-    { id: 103, name: "Mariam Gamal", mutual: "4 أصدقاء مشتركون", avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150" }
-  ];
+  const fetchRequests = useCallback(async () => {
+    setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
+      const { data } = await supabase
+        .from("friendships")
+        .select(`id, sender_id, profiles:sender_id(id, full_name, avatar_url, user_number_id)`)
+        .eq("receiver_id", user.id)
+        .eq("status", "pending");
+
+      if (data) setRequests(data as unknown as FriendshipItem[]);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchRequests(); }, [fetchRequests]);
+
+  const handleAction = async (id: string, newStatus: "accepted" | "rejected") => {
+    const { error } = await supabase.from("friendships").update({ status: newStatus }).eq("id", id);
+    if (!error) setRequests((prev) => prev.filter((item) => item.id !== id));
+  };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 pb-24 dir-rtl font-sans">
-      
-      {/* Header Bar */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm">
-        <h1 className="text-lg font-black text-slate-900">الأصدقاء</h1>
-        <button className="p-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700">
-          <Search className="w-5 h-5" />
-        </button>
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-24 dir-rtl font-sans">
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3 shadow-sm text-right">
+        <h1 className="text-base font-black text-slate-900">طلبات الصداقة والأصدقاء</h1>
       </header>
 
-      <main className="max-w-md mx-auto p-4 space-y-6">
-
-        {/* Friend Requests Section */}
-        <section className="space-y-3">
-          <div className="flex justify-between items-center">
-            <h2 className="text-sm font-bold text-slate-900">
-              طلبات الصداقة <span className="text-rose-500 font-extrabold">{friendRequests.length}</span>
-            </h2>
-            <button className="text-xs text-blue-600 font-bold hover:underline">عرض الكل</button>
+      <main className="max-w-md mx-auto p-4 space-y-3">
+        {loading ? (
+          <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-orange-500" /></div>
+        ) : requests.length === 0 ? (
+          <div className="bg-white p-8 rounded-2xl text-center text-xs text-slate-400 border border-slate-200 flex flex-col items-center gap-2">
+            <Users className="w-8 h-8 text-slate-300" />
+            <span>لا توجد طلبات صداقة معلقة حالياً.</span>
           </div>
-
-          <div className="space-y-3">
-            {friendRequests.map((req) => (
-              <div key={req.id} className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3">
-                <img src={req.avatar} alt={req.name} className="w-14 h-14 rounded-full object-cover border border-slate-100" />
-                <div className="flex-1 text-right space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-xs font-bold text-slate-900">{req.name}</h3>
-                    <span className="text-[10px] text-slate-400 font-medium">{req.time}</span>
-                  </div>
-                  <p className="text-[10px] text-slate-500">{req.mutual}</p>
-                  
-                  <div className="flex gap-2 pt-1">
-                    <button className="flex-1 bg-blue-600 text-white font-bold py-1.5 rounded-xl text-xs hover:bg-blue-700 transition flex items-center justify-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>تأكيد</span>
-                    </button>
-                    <button className="flex-1 bg-slate-200 text-slate-700 font-bold py-1.5 rounded-xl text-xs hover:bg-slate-300 transition">
-                      حذف
-                    </button>
-                  </div>
+        ) : (
+          requests.map((req) => (
+            <div key={req.id} className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-slate-900 text-amber-400 font-bold flex items-center justify-center text-xs overflow-hidden">
+                  {req.profiles?.avatar_url ? <img src={req.profiles.avatar_url} alt="Avatar" className="w-full h-full object-cover" /> : req.profiles?.full_name?.charAt(0)}
+                </div>
+                <div className="text-right">
+                  <h3 className="text-xs font-bold text-slate-900">{req.profiles?.full_name}</h3>
+                  <span className="text-[10px] text-slate-400 font-mono">#{req.profiles?.user_number_id}</span>
                 </div>
               </div>
-            ))}
-          </div>
-        </section>
 
-        {/* People You May Know Section */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-bold text-slate-900 text-right">أشخاص قد تعرفهم</h2>
-
-          <div className="space-y-3">
-            {suggestions.map((item) => (
-              <div key={item.id} className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3">
-                <img src={item.avatar} alt={item.name} className="w-14 h-14 rounded-full object-cover border border-slate-100" />
-                <div className="flex-1 text-right space-y-1.5">
-                  <h3 className="text-xs font-bold text-slate-900">{item.name}</h3>
-                  <p className="text-[10px] text-slate-500">{item.mutual}</p>
-                  
-                  <div className="flex gap-2 pt-1">
-                    <button className="flex-1 bg-blue-50 text-blue-600 font-bold py-1.5 rounded-xl text-xs hover:bg-blue-100 transition flex items-center justify-center gap-1">
-                      <UserPlus className="w-3.5 h-3.5" />
-                      <span>إضافة صديق</span>
-                    </button>
-                    <button className="flex-1 bg-slate-100 text-slate-600 font-semibold py-1.5 rounded-xl text-xs hover:bg-slate-200 transition">
-                      إزالة
-                    </button>
-                  </div>
-                </div>
+              <div className="flex gap-1.5">
+                <button onClick={() => handleAction(req.id, "accepted")} className="bg-orange-500 text-white p-2 rounded-xl text-xs font-bold flex items-center gap-1"><UserCheck className="w-3.5 h-3.5" /><span>تأكيد</span></button>
+                <button onClick={() => handleAction(req.id, "rejected")} className="bg-slate-100 text-slate-700 p-2 rounded-xl text-xs font-bold flex items-center gap-1"><UserX className="w-3.5 h-3.5" /><span>حذف</span></button>
               </div>
-            ))}
-          </div>
-        </section>
-
+            </div>
+          ))
+        )}
       </main>
-
     </div>
   );
 }
