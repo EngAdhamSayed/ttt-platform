@@ -1,62 +1,63 @@
 "use client";
 
-import React from "react";
-import { Heart, MessageSquare, UserPlus, ShieldAlert, Home, Compass, PlusCircle, Bell, User } from "lucide-react";
-import Link from "next/link";
-import BottomNav from "@/components/BottomNav";
+import React, { useState, useEffect } from "react";
+import { Search, Loader2, Bell } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 export default function NotificationsPage() {
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
+      const { data } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (data) setNotifications(data);
+    }
+    setLoading(false);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800 pb-20 max-w-md mx-auto">
-      
-      <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-md px-4 py-3 border-b border-slate-200">
-        <h1 className="text-sm font-bold text-slate-900">التنبيهات الإشعارية</h1>
+    <div className="min-h-screen bg-slate-100 text-slate-900 pb-24 dir-rtl font-sans">
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm">
+        <h1 className="text-lg font-black text-slate-900">الإشعارات</h1>
+        <button className="p-2 rounded-full bg-slate-100 text-slate-700">
+          <Search className="w-5 h-5" />
+        </button>
       </header>
 
-      <main className="p-3 space-y-2">
-        <NotificationItem 
-          icon={<Heart className="w-4 h-4 text-rose-500" />}
-          title="أعجب مستخدم TTT بمنشورك"
-          time="منذ 10 دقائق"
-          content="أهلاً بك في TTT! المنصة التي أُسست لتكون..."
-        />
-        <NotificationItem 
-          icon={<UserPlus className="w-4 h-4 text-amber-500" />}
-          title="قام أحمد بمتابعتك"
-          time="منذ ساعة"
-        />
-        <NotificationItem 
-          icon={<MessageSquare className="w-4 h-4 text-blue-500" />}
-          title="علق فريق TTT على منشورك"
-          time="منذ 3 ساعات"
-          content="شكراً لمشاركتك الفعالة في التجربة الأولى!"
-        />
-        <NotificationItem 
-          icon={<ShieldAlert className="w-4 h-4 text-emerald-500" />}
-          title="تم تأمين حسابك بنجاح"
-          time="منذ يوم"
-          content="بياناتك وحسابك مشفرة بالكامل طبقاً لمعايير Beta."
-        />
+      <main className="max-w-md mx-auto p-4 space-y-4">
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-7 h-7 animate-spin text-blue-600" />
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="bg-white p-8 rounded-2xl text-center text-xs text-slate-400 border border-slate-200 shadow-sm flex flex-col items-center gap-2">
+            <Bell className="w-8 h-8 text-slate-300" />
+            <span>لا توجد إشعارات جديدة حالياً</span>
+          </div>
+        ) : (
+          notifications.map((notif) => (
+            <div key={notif.id} className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm text-right space-y-1">
+              <p className="text-xs text-slate-800 font-medium">{notif.content}</p>
+              <span className="text-[10px] text-slate-400">
+                {new Date(notif.created_at).toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          ))
+        )}
       </main>
-
-      <BottomNav activeTab="notifications" />
-    </div>
-  );
-}
-
-function NotificationItem({ icon, title, time, content }: { icon: React.ReactNode; title: string; time: string; content?: string }) {
-  return (
-    <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm flex gap-3 items-start">
-      <div className="p-2 bg-slate-50 rounded-xl border border-slate-100 mt-0.5">
-        {icon}
-      </div>
-      <div className="flex-1 space-y-1">
-        <div className="flex justify-between items-center">
-          <h4 className="text-xs font-bold text-slate-900">{title}</h4>
-          <span className="text-[10px] text-slate-400">{time}</span>
-        </div>
-        {content && <p className="text-[11px] text-slate-500 line-clamp-1">{content}</p>}
-      </div>
     </div>
   );
 }

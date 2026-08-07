@@ -1,16 +1,23 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
-  const supabase = createMiddlewareClient({ req, res });
-  const { data: { session } } = await supabase.auth.getSession();
+export function middleware(req: NextRequest) {
+  // توجيه مستخدم الصفحة الرئيسية للـ Login لو مفيش session token في الكوكيز
+  const token = req.cookies.get('sb-access-token')?.value || req.cookies.get('supabase-auth-token')?.value;
 
-  if (!session && req.nextUrl.pathname !== '/login' && req.nextUrl.pathname !== '/signup') {
+  const isAuthPage = req.nextUrl.pathname === '/login' || req.nextUrl.pathname === '/signup' || req.nextUrl.pathname === '/forgot-password';
+
+  if (!token && !isAuthPage) {
     return NextResponse.redirect(new URL('/login', req.url));
   }
-  return res;
+
+  if (token && isAuthPage) {
+    return NextResponse.redirect(new URL('/', req.url));
+  }
+
+  return NextResponse.next();
 }
 
-export const config = { matcher: ['/', '/profile/:path*', '/friends/:path*'] };
+export const config = {
+  matcher: ['/', '/profile/:path*', '/friends/:path*', '/groups/:path*', '/reels/:path*', '/messages/:path*'],
+};
