@@ -3,18 +3,18 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Tv2, Users, UsersRound, Bell, User } from "lucide-react";
+import { Home, Clapperboard, UserRoundPlus, BadgeCheck, BellRing, UserRound } from "lucide-react";
 
 export default function BottomNav() {
   const pathname = usePathname();
 
   const navItems = [
     { name: "الرئيسية", href: "/", icon: Home },
-    { name: "ريلز", href: "/reels", icon: Tv2 },
-    { name: "الأصدقاء", href: "/friends", icon: Users },
-    { name: "المجموعات", href: "/groups", icon: UsersRound },
-    { name: "الإشعارات", href: "/notifications", icon: Bell },
-    { name: "حسابي", href: "/profile", icon: User },
+    { name: "ريلز", href: "/reels", icon: Clapperboard },
+    { name: "الأصدقاء", href: "/friends", icon: UserRoundPlus },
+    { name: "المجموعات", href: "/groups", icon: BadgeCheck },
+    { name: "الإشعارات", href: "/notifications", icon: BellRing },
+    { name: "حسابي", href: "/profile", icon: UserRound },
   ];
 
   return (
@@ -29,13 +29,13 @@ export default function BottomNav() {
               key={item.href}
               href={item.href}
               className={`flex flex-1 flex-col items-center justify-center rounded-2xl py-1.5 transition-all ${
-                isActive ? "text-blue-600" : "text-slate-500 hover:text-slate-800"
+                isActive ? "text-orange-600" : "text-slate-500 hover:text-slate-800"
               }`}
             >
               <div className="relative">
                 <Icon className={`h-6 w-6 ${isActive ? "stroke-[2.5]" : "stroke-[1.8]"}`} />
                 {isActive && (
-                  <span className="absolute -bottom-2 left-1/2 h-1 w-8 -translate-x-1/2 rounded-full bg-blue-600" />
+                  <span className="absolute -bottom-2 left-1/2 h-1 w-8 -translate-x-1/2 rounded-full bg-orange-600" />
                 )}
               </div>
             </Link>

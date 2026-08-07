@@ -1,33 +1,90 @@
 "use client";
-import { useState } from "react";
+
+import React, { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) alert(error.message);
-    else router.push("/");
+    setLoading(true);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: password.trim(),
+    });
+
+    if (error) {
+      alert("خطأ في بيانات الدخول: " + error.message);
+    } else if (data.session) {
+      router.push("/");
+      router.refresh();
+    }
+    setLoading(false);
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[radial-gradient(circle_at_top,_#eff6ff,_#f8fafc_65%,_#e2e8f0)] p-6 dir-rtl font-sans">
-      <div className="w-full max-w-sm rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="mb-2 text-3xl font-black text-blue-600">TTT Platform</h1>
-        <p className="mb-6 text-sm text-slate-500">تسجيل الدخول إلى شبكة التواصل الخاصة بك</p>
+    <div className="min-h-screen bg-slate-100 flex flex-col justify-center items-center p-4 dir-rtl font-sans">
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm w-full max-w-sm space-y-4 text-right">
+        <h1 className="text-2xl font-black text-blue-600 tracking-wider">facebook</h1>
+        <p className="text-xs text-slate-500">تسجيل الدخول إلى حسابك</p>
+
         <form onSubmit={handleLogin} className="space-y-3">
-          <input type="email" placeholder="البريد الإلكتروني" onChange={(e) => setEmail(e.target.value)} className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none transition focus:border-blue-500" />
-          <input type="password" placeholder="كلمة السر" onChange={(e) => setPassword(e.target.value)} className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none transition focus:border-blue-500" />
-          <button type="submit" className="w-full rounded-xl bg-blue-600 py-3 font-bold text-white transition hover:bg-blue-700">تسجيل الدخول</button>
+          <div className="relative">
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="البريد الإلكتروني"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs pr-10 focus:outline-none focus:border-blue-600 text-right"
+            />
+            <Mail className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5" />
+          </div>
+
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="كلمة السر"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs pr-10 pl-10 focus:outline-none focus:border-blue-600 text-right"
+            />
+            <Lock className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5" />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute left-3.5 top-3.5 text-slate-400 hover:text-slate-600"
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl text-xs flex justify-center items-center gap-2 disabled:opacity-50 transition"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>تسجيل الدخول</span>}
+          </button>
         </form>
-        <div className="mt-4 text-center text-xs text-slate-500">
-          ليس لديك حساب؟ <Link href="/signup" className="font-bold text-blue-600">إنشاء حساب</Link>
+
+        <div className="flex justify-between items-center text-[11px] pt-2 border-t border-slate-100">
+          <Link href="/forgot-password" className="text-slate-500 hover:underline">
+            نسيت كلمة السر؟
+          </Link>
+          <Link href="/signup" className="text-blue-600 font-bold hover:underline">
+            إنشاء حساب جديد
+          </Link>
         </div>
       </div>
     </div>
