@@ -1,23 +1,29 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Search, Plus, Loader2, Users } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Search, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
+interface GroupItem {
+  id: string;
+  name: string;
+  privacy: string;
+}
+
 export default function GroupsPage() {
-  const [groups, setGroups] = useState<any[]>([]);
+  const [groups, setGroups] = useState<GroupItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const fetchGroups = useCallback(async () => {
+    setLoading(true);
+    const { data } = await supabase.from("groups").select("*");
+    if (data) setGroups(data as GroupItem[]);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     fetchGroups();
-  }, []);
-
-  const fetchGroups = async () => {
-    setLoading(true);
-    const { data } = await supabase.from("groups").select("*");
-    if (data) setGroups(data);
-    setLoading(false);
-  };
+  }, [fetchGroups]);
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 pb-24 dir-rtl font-sans">

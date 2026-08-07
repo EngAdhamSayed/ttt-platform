@@ -1,37 +1,39 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { Send, Loader2, MessageSquare } from "lucide-react";
+import { Loader2, MessageSquare } from "lucide-react";
+
+interface UserFriend {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+}
 
 export default function MessagesPage() {
-  const [friends, setFriends] = useState<any[]>([]);
-  const [activeFriend, setActiveFriend] = useState<any>(null);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [newMessage, setNewMessage] = useState("");
+  const [friends, setFriends] = useState<UserFriend[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadFriends();
-  }, []);
-
-  const loadFriends = async () => {
+  const loadFriends = useCallback(async () => {
+    setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const { data } = await supabase
       .from("profiles")
       .select("id, full_name, avatar_url")
       .neq("id", user.id);
 
-    if (data) setFriends(data);
+    if (data) setFriends(data as UserFriend[]);
     setLoading(false);
-  };
+  }, []);
 
-  const loadMessages = async (friendId: string) => {
-    setActiveFriend(friends.find(f => f.id === friendId));
-    // هنا بيتم جلب الرسائل من جدول الرسائل المباشر
-  };
+  useEffect(() => {
+    loadFriends();
+  }, [loadFriends]);
 
   return (
     <div className="min-h-screen bg-slate-100 pb-24 dir-rtl font-sans">
@@ -51,11 +53,14 @@ export default function MessagesPage() {
             {friends.map((friend) => (
               <div 
                 key={friend.id} 
-                onClick={() => loadMessages(friend.id)}
                 className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-sm flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition"
               >
-                <div className="w-11 h-11 rounded-full bg-slate-800 text-amber-400 font-bold flex items-center justify-center text-xs">
-                  {friend.avatar_url ? <img src={friend.avatar_url} className="w-full h-full rounded-full object-cover" /> : friend.full_name?.charAt(0) || "U"}
+                <div className="w-11 h-11 rounded-full bg-slate-800 text-amber-400 font-bold flex items-center justify-center text-xs overflow-hidden">
+                  {friend.avatar_url ? (
+                    <img src={friend.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    friend.full_name?.charAt(0) || "U"
+                  )}
                 </div>
                 <div className="flex-1 text-right">
                   <h3 className="text-xs font-bold text-slate-900">{friend.full_name}</h3>

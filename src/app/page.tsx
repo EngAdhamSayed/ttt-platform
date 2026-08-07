@@ -1,48 +1,64 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { 
-  Menu, Search, Heart, MessageCircle, Share2, ImageIcon, Send, Loader2, Bookmark,
-  Plus, Video, Users, Bell, User, LogOut, Settings
-} from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Search, MessageCircle, Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 
+interface ProfileData {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+}
+
+interface PostData {
+  id: string;
+  content: string;
+  image_url: string | null;
+  created_at: string;
+  profiles: ProfileData | null;
+}
+
+interface StoryData {
+  id: string;
+  media_url: string;
+  profiles: ProfileData | null;
+}
+
 export default function HomePage() {
-  const [posts, setPosts] = useState<any[]>([]);
-  const [stories, setStories] = useState<any[]>([]);
+  const [posts, setPosts] = useState<PostData[]>([]);
+  const [stories, setStories] = useState<StoryData[]>([]);
   const [newPost, setNewPost] = useState("");
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<ProfileData | null>(null);
 
-  useEffect(() => {
-    initData();
-  }, []);
-
-  const initData = async () => {
+  const initData = useCallback(async () => {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-      setCurrentUser(profile || { id: user.id, full_name: user.email?.split("@")[0] });
+      setCurrentUser(profile || { id: user.id, full_name: user.email?.split("@")[0] || null, avatar_url: null });
     }
 
-    // جلب البوستات الاستوريز الحقيقية من الداتابيز
     const { data: postsData } = await supabase
       .from("posts")
-      .select(`id, content, image_url, created_at, profiles:user_id(full_name, avatar_url)`)
+      .select(`id, content, image_url, created_at, profiles:user_id(id, full_name, avatar_url)`)
       .order("created_at", { ascending: false });
 
     const { data: storiesData } = await supabase
       .from("stories")
-      .select(`id, media_url, profiles:user_id(full_name, avatar_url)`)
+      .select(`id, media_url, profiles:user_id(id, full_name, avatar_url)`)
       .order("created_at", { ascending: false });
 
-    if (postsData) setPosts(postsData);
-    if (storiesData) setStories(storiesData);
+    if (postsData) setPosts(postsData as unknown as PostData[]);
+    if (storiesData) setStories(storiesData as unknown as StoryData[]);
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    initData();
+  }, [initData]);
 
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,8 +80,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 pb-24 dir-rtl font-sans">
-      
-      {/* Header */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between shadow-sm">
         <h1 className="text-xl font-black text-blue-600 tracking-wider">facebook</h1>
         <div className="flex items-center gap-2">
@@ -79,8 +93,6 @@ export default function HomePage() {
       </header>
 
       <main className="max-w-md mx-auto p-3 space-y-3">
-        
-        {/* Create Story & Stories Horizontal Feed */}
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
           <div className="w-24 h-36 bg-white rounded-2xl border border-slate-200 flex flex-col justify-between p-2 flex-shrink-0 relative shadow-sm">
             <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs mx-auto my-auto">
@@ -91,13 +103,12 @@ export default function HomePage() {
 
           {stories.map((story) => (
             <div key={story.id} className="w-24 h-36 bg-slate-800 rounded-2xl border border-slate-200 flex flex-col justify-end p-2 flex-shrink-0 relative overflow-hidden shadow-sm">
-              {story.media_url && <img src={story.media_url} className="absolute inset-0 w-full h-full object-cover opacity-80" />}
+              {story.media_url && <img src={story.media_url} alt="Story" className="absolute inset-0 w-full h-full object-cover opacity-80" />}
               <span className="relative z-10 text-[10px] font-bold text-white truncate">{story.profiles?.full_name}</span>
             </div>
           ))}
         </div>
 
-        {/* Create Post Box */}
         <div className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm space-y-2">
           <form onSubmit={handleCreatePost} className="space-y-2">
             <textarea
@@ -120,7 +131,6 @@ export default function HomePage() {
           </form>
         </div>
 
-        {/* Posts Feed */}
         {loading ? (
           <div className="flex justify-center py-10"><Loader2 className="w-7 h-7 animate-spin text-blue-600" /></div>
         ) : posts.length === 0 ? (
@@ -131,8 +141,12 @@ export default function HomePage() {
           posts.map((post) => (
             <article key={post.id} className="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm space-y-2 text-right">
               <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-full bg-slate-800 text-amber-400 font-bold flex items-center justify-center text-xs">
-                  {post.profiles?.full_name?.charAt(0) || "U"}
+                <div className="w-9 h-9 rounded-full bg-slate-800 text-amber-400 font-bold flex items-center justify-center text-xs overflow-hidden">
+                  {post.profiles?.avatar_url ? (
+                    <img src={post.profiles.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    post.profiles?.full_name?.charAt(0) || "U"
+                  )}
                 </div>
                 <div>
                   <h3 className="text-xs font-bold text-slate-900">{post.profiles?.full_name || "مستخدم TTT"}</h3>
@@ -143,7 +157,6 @@ export default function HomePage() {
             </article>
           ))
         )}
-
       </main>
     </div>
   );

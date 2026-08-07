@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { ArrowRight, Loader2, Mail } from "lucide-react";
@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
     if (error) {
       alert("حدث خطأ: " + error.message);
     } else {
-      setMessage("تم إرسال رابط إعادة ضبط كلمة السر إلى إيميلك بنجاح!");
+      setMessage("تم إرسال رابط إعادة ضبط كلمة السر إلى بريدك الإلكتروني بنجاح!");
     }
     setLoading(false);
   };

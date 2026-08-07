@@ -1,18 +1,20 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Search, Loader2, Bell } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
+interface NotifItem {
+  id: string;
+  content: string;
+  created_at: string;
+}
+
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<NotifItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -23,10 +25,14 @@ export default function NotificationsPage() {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (data) setNotifications(data);
+      if (data) setNotifications(data as NotifItem[]);
     }
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 pb-24 dir-rtl font-sans">
