@@ -1,192 +1,300 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, type FormEvent } from "react";
-import { Search, MessageCircle, Plus, Loader2, Image as ImageIcon, Smile, Video, Sparkles } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import Link from "next/link";
-import Image from "next/image";
-import PostCard from "@/components/PostCard";
+import { 
+  Loader2, Image as ImageIcon, Send, Heart, MessageCircle, 
+  Share2, Plus, CheckCircle2, ShieldCheck, Crown, Sparkles 
+} from "lucide-react";
 
-interface ProfileData {
+interface UserProfile {
   id: string;
+  user_number_id: string;
   full_name: string | null;
   avatar_url: string | null;
+  is_verified: boolean;
+  role: string;
+  rank_tier: string;
 }
 
-interface PostData {
+interface PostItem {
   id: string;
   content: string;
-  image_url: string | null;
+  media_urls: string[] | null;
   created_at: string;
-  profiles: ProfileData | null;
+  profiles: UserProfile;
+  post_reactions: { id: string }[];
+  comments: { id: string }[];
 }
 
-interface StoryData {
+interface StoryItem {
   id: string;
   media_url: string;
-  profiles: ProfileData | null;
+  profiles: UserProfile;
 }
 
-const avatarFallback = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80";
-
 export default function HomePage() {
-  const [posts, setPosts] = useState<PostData[]>([]);
-  const [stories, setStories] = useState<StoryData[]>([]);
-  const [newPost, setNewPost] = useState("");
+  const [currentProfile, setCurrentProfile] = useState<UserProfile | null>(null);
+  const [posts, setPosts] = useState<PostItem[]>([]);
+  const [stories, setStories] = useState<StoryItem[]>([]);
+  const [newPostText, setNewPostText] = useState("");
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
-  const [currentUser, setCurrentUser] = useState<ProfileData | null>(null);
 
-  const initData = useCallback(async () => {
+  // جلب البيانات الأساسية
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
 
     if (user) {
-      const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-      setCurrentUser(
-        profile || { id: user.id, full_name: user.email?.split("@")[0] || null, avatar_url: null },
-      );
+      // 1. جلب بيانات المستخدم الحالي
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      if (profileData) setCurrentProfile(profileData as UserProfile);
+
+      // 2. جلب المنشورات الحقيقية
+      const { data: postsData } = await supabase
+        .from("posts")
+        .select(`
+          id, content, media_urls, created_at,
+          profiles:user_id(id, user_number_id, full_name, avatar_url, is_verified, role, rank_tier),
+          post_reactions(id),
+          comments(id)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (postsData) setPosts(postsData as unknown as PostItem[]);
+
+      // 3. جلب القصص الشغالة (خلال 24 ساعة)
+      const { data: storiesData } = await supabase
+        .from("stories")
+        .select(`
+          id, media_url,
+          profiles:user_id(id, user_number_id, full_name, avatar_url, is_verified, role, rank_tier)
+        `)
+        .gt("expires_at", new Date().toISOString());
+
+      if (storiesData) setStories(storiesData as unknown as StoryItem[]);
     }
-
-    const { data: postsData } = await supabase
-      .from("posts")
-      .select(`id, content, image_url, created_at, profiles:user_id(id, full_name, avatar_url)`)
-      .order("created_at", { ascending: false });
-
-    const { data: storiesData } = await supabase
-      .from("stories")
-      .select(`id, media_url, profiles:user_id(id, full_name, avatar_url)`)
-      .order("created_at", { ascending: false });
-
-    if (postsData) setPosts(postsData as unknown as PostData[]);
-    if (storiesData) setStories(storiesData as unknown as StoryData[]);
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    void initData();
-  }, [initData]);
+    fetchData();
+  }, [fetchData]);
 
-  const handleCreatePost = async (e: FormEvent<HTMLFormElement>) => {
+  // إنشاء منشور جديد
+  const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPost.trim() || !currentUser) return;
+    if (!newPostText.trim() || !currentProfile) return;
 
     setPosting(true);
-    const { error } = await supabase.from("posts").insert([{ user_id: currentUser.id, content: newPost.trim() }]);
+    const { error } = await supabase.from("posts").insert([
+      {
+        user_id: currentProfile.id,
+        content: newPostText.trim(),
+      },
+    ]);
 
     if (!error) {
-      setNewPost("");
-      void initData();
+      setNewPostText("");
+      fetchData(); // تحديث الصفحة
     } else {
       alert("حدث خطأ أثناء النشر: " + error.message);
     }
     setPosting(false);
   };
 
+  // تفاعل إعجاب (Like)
+  const handleLike = async (postId: string) => {
+    if (!currentProfile) return;
+    await supabase.from("post_reactions").insert([
+      { post_id: postId, user_id: currentProfile.id, type: "like" },
+    ]);
+    fetchData();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex justify-center items-center">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-100 pb-24 text-slate-900 dir-rtl font-sans">
-      <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-orange-600">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <h1 className="text-xl font-black tracking-wider">TTT</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link href="/messages" className="rounded-full bg-orange-50 p-2 text-orange-600 transition hover:bg-orange-100">
-              <MessageCircle className="h-5 w-5" />
-            </Link>
-            <Link href="/explore" className="rounded-full bg-orange-50 p-2 text-orange-600 transition hover:bg-orange-100">
-              <Search className="h-5 w-5" />
-            </Link>
-          </div>
+    <div className="min-h-screen bg-slate-100 text-slate-900 pb-24 dir-rtl font-sans">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3 shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-black text-blue-600 tracking-wider">facebook</h1>
+          <span className="bg-blue-50 text-blue-600 border border-blue-200 text-[10px] px-1.5 py-0.5 rounded-md font-bold">
+            TTT Edition
+          </span>
         </div>
+        {currentProfile && (
+          <div className="text-left">
+            <span className="text-[11px] font-bold text-slate-500 block">
+              ID: #{currentProfile.user_number_id}
+            </span>
+          </div>
+        )}
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-3 p-3">
-        <div className="rounded-[1.5rem] border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-black text-slate-900">القصص</h2>
-            <span className="text-[11px] font-semibold text-orange-600">عرض الكل</span>
-          </div>
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            <div className="flex h-36 w-24 flex-shrink-0 flex-col justify-between rounded-[1.25rem] border border-orange-200 bg-gradient-to-br from-orange-500 to-amber-500 p-2 text-white shadow-sm">
-              <div className="mx-auto my-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/20">
-                <Plus className="h-5 w-5" />
-              </div>
-              <span className="text-center text-[10px] font-bold">إنشاء قصة</span>
+      <main className="max-w-md mx-auto p-4 space-y-4">
+        {/* قسم القصص (Stories) */}
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+          {/* زر إضافة قصة */}
+          <div className="w-24 h-36 bg-white border border-slate-200 rounded-2xl flex-shrink-0 flex flex-col items-center justify-between p-2 shadow-sm relative overflow-hidden">
+            <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mt-4">
+              <Plus className="w-6 h-6" />
             </div>
-
-            {stories.map((story) => (
-              <div key={story.id} className="relative flex h-36 w-24 flex-shrink-0 flex-col justify-end overflow-hidden rounded-[1.25rem] border border-slate-200 shadow-sm">
-                {story.media_url && (
-                  <Image src={story.media_url} alt="Story" fill unoptimized className="object-cover opacity-80" />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-900/10 to-transparent" />
-                <span className="relative z-10 truncate px-2 pb-2 text-[10px] font-bold text-white">
-                  {story.profiles?.full_name || "مستخدم"}
-                </span>
-              </div>
-            ))}
+            <span className="text-[11px] font-bold text-slate-700">إنشاء قصة</span>
           </div>
+
+          {/* عرض قصص المستخدمين */}
+          {stories.map((story) => (
+            <div
+              key={story.id}
+              className="w-24 h-36 rounded-2xl flex-shrink-0 relative overflow-hidden shadow-sm border border-slate-200 bg-slate-800"
+            >
+              <img src={story.media_url} alt="Story" className="w-full h-full object-cover opacity-80" />
+              <div className="absolute top-2 right-2 w-7 h-7 rounded-full border-2 border-blue-500 bg-slate-900 overflow-hidden flex items-center justify-center text-[10px] text-white font-bold">
+                {story.profiles?.avatar_url ? (
+                  <img src={story.profiles.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  story.profiles?.full_name?.charAt(0) || "U"
+                )}
+              </div>
+            </div>
+          ))}
         </div>
 
-        <section className="space-y-3 rounded-[1.5rem] border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
-            <div className="flex items-center gap-2 text-right">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100 text-orange-600">
-                <Sparkles className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-[11px] font-black text-slate-900">ماذا يحدث اليوم؟</p>
-                <p className="text-[10px] text-slate-500">شارك أفكارك مع أصدقائك</p>
-              </div>
-            </div>
-          </div>
+        {/* صندوق كتابة منشور (Create Post) */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
           <div className="flex items-center gap-3">
-            <div className="relative h-11 w-11 overflow-hidden rounded-full border border-slate-200 bg-slate-100">
-              <Image src={currentUser?.avatar_url || avatarFallback} alt="Your avatar" fill unoptimized className="object-cover" />
+            <div className="w-10 h-10 rounded-full bg-slate-800 text-amber-400 font-bold flex items-center justify-center text-sm overflow-hidden flex-shrink-0">
+              {currentProfile?.avatar_url ? (
+                <img src={currentProfile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                currentProfile?.full_name?.charAt(0) || "U"
+              )}
             </div>
-            <form onSubmit={handleCreatePost} className="flex-1">
-              <textarea
-                rows={2}
-                value={newPost}
-                onChange={(e) => setNewPost(e.target.value)}
-                placeholder={`بم تفكر يا ${currentUser?.full_name || "صديق"}؟`}
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-2.5 text-right text-xs text-slate-700 outline-none transition focus:border-orange-500"
-              />
-              <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
-                <div className="flex items-center gap-3 text-[11px] font-bold text-slate-500">
-                  <span className="flex items-center gap-1"><Video className="h-4 w-4 text-rose-500" /> فيديو</span>
-                  <span className="flex items-center gap-1"><ImageIcon className="h-4 w-4 text-emerald-600" /> صورة</span>
-                  <span className="flex items-center gap-1"><Smile className="h-4 w-4 text-amber-500" /> شعور</span>
-                </div>
-                <button
-                  type="submit"
-                  disabled={posting || !newPost.trim()}
-                  className="flex items-center gap-1 rounded-xl bg-orange-600 px-4 py-1.5 text-xs font-bold text-white transition hover:bg-orange-700 disabled:opacity-50"
-                >
-                  {posting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span>نشر</span>}
-                </button>
+            <div className="flex-1">
+              <div className="flex items-center gap-1">
+                <span className="text-xs font-bold text-slate-900">{currentProfile?.full_name}</span>
+                {currentProfile?.rank_tier === "millionaire_dev" && (
+                  <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                )}
               </div>
-            </form>
+              <span className="text-[10px] text-slate-400 block">مُعرف الحساب: #{currentProfile?.user_number_id}</span>
+            </div>
           </div>
-        </section>
 
-        {loading ? (
-          <div className="flex justify-center py-10">
-            <Loader2 className="h-7 w-7 animate-spin text-orange-600" />
-          </div>
-        ) : posts.length === 0 ? (
-          <div className="rounded-[1.5rem] border border-slate-200 bg-white p-6 text-center text-xs text-slate-400 shadow-sm">
-            لا توجد منشورات حتى الآن، كن أول من ينشر!
-          </div>
-        ) : (
-          posts.map((post) => <PostCard key={post.id} post={post} />)
-        )}
+          <form onSubmit={handleCreatePost} className="space-y-2">
+            <textarea
+              value={newPostText}
+              onChange={(e) => setNewPostText(e.target.value)}
+              placeholder={`بم تفكر يا ${currentProfile?.full_name?.split(" ")[0]}؟`}
+              rows={3}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:border-blue-600 resize-none text-right"
+            />
+
+            <div className="flex items-center justify-between border-t border-slate-100 pt-2">
+              <button
+                type="button"
+                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-blue-600 font-semibold"
+              >
+                <ImageIcon className="w-4 h-4 text-green-500" />
+                <span>صورة/فيديو</span>
+              </button>
+
+              <button
+                type="submit"
+                disabled={posting || !newPostText.trim()}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center gap-1 disabled:opacity-50 transition"
+              >
+                {posting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                <span>نشر</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* عرض المنشورات (Feed) */}
+        <div className="space-y-3">
+          {posts.length === 0 ? (
+            <div className="bg-white p-8 rounded-2xl text-center text-xs text-slate-400 border border-slate-200 shadow-sm space-y-2">
+              <Sparkles className="w-8 h-8 text-slate-300 mx-auto" />
+              <p>لا توجد منشورات حتى الآن، كن أول من ينشر!</p>
+            </div>
+          ) : (
+            posts.map((post) => (
+              <div key={post.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3 text-right">
+                {/* معلومات الناشر */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-full bg-slate-800 text-amber-400 font-bold flex items-center justify-center text-xs overflow-hidden">
+                      {post.profiles?.avatar_url ? (
+                        <img src={post.profiles.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        post.profiles?.full_name?.charAt(0) || "U"
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs font-bold text-slate-900">{post.profiles?.full_name}</span>
+                        {post.profiles?.is_verified && (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 fill-blue-500 text-white" />
+                        )}
+                        {post.profiles?.role === "admin" && (
+                          <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-400 block">
+                        #{post.profiles?.user_number_id} • {new Date(post.created_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {post.profiles?.rank_tier === "millionaire_dev" && (
+                    <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-300 flex items-center gap-1">
+                      <Crown className="w-3 h-3 fill-amber-500" />
+                      <span>Founder</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* نص المنشور */}
+                <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+
+                {/* أزرار التفاعل */}
+                <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs text-slate-500">
+                  <button
+                    onClick={() => handleLike(post.id)}
+                    className="flex items-center gap-1 hover:text-red-500 transition font-medium"
+                  >
+                    <Heart className="w-4 h-4" />
+                    <span>{post.post_reactions?.length || 0} إعجاب</span>
+                  </button>
+
+                  <button className="flex items-center gap-1 hover:text-blue-600 transition font-medium">
+                    <MessageCircle className="w-4 h-4" />
+                    <span>{post.comments?.length || 0} تعليق</span>
+                  </button>
+
+                  <button className="flex items-center gap-1 hover:text-slate-800 transition font-medium">
+                    <Share2 className="w-4 h-4" />
+                    <span>مشاركة</span>
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </main>
     </div>
   );
