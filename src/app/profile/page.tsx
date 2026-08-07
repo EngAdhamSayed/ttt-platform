@@ -1,17 +1,18 @@
 "use client";
 
 import React, { useState } from "react";
-import { 
-  Camera, 
-  Plus, 
-  Edit3, 
-  MapPin, 
-  Home, 
-  Calendar, 
-  Heart, 
+import {
+  Camera,
+  Plus,
+  Edit3,
+  MapPin,
+  Home,
+  Calendar,
+  Heart,
   GraduationCap,
-  Globe,
-  MoreHorizontal
+  MoreHorizontal,
+  Users,
+  Sparkles,
 } from "lucide-react";
 
 export default function ProfilePage() {
@@ -103,9 +104,10 @@ export default function ProfilePage() {
       {/* Details Box */}
       <div className="max-w-md mx-auto p-4 space-y-4">
         <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
-          <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2 text-right">
-            التفاصيل الشخصية
-          </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-slate-900 text-right">التفاصيل الشخصية</h2>
+            <Sparkles className="h-4 w-4 text-blue-600" />
+          </div>
 
           <div className="space-y-2.5 text-xs text-slate-700 text-right font-medium">
             <div className="flex items-center gap-2.5">
@@ -123,6 +125,27 @@ export default function ProfilePage() {
             <div className="flex items-center gap-2.5">
               <GraduationCap className="w-4 h-4 text-slate-400" />
               <span>درس في <strong className="text-slate-900">معهد الجيزة العالي للهندسة والتكنولوجيا</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-slate-900 text-right">إحصائياتك</h2>
+            <Users className="h-4 w-4 text-slate-500" />
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center text-xs text-slate-600">
+            <div className="rounded-2xl bg-slate-50 p-2">
+              <p className="text-base font-black text-slate-900">55</p>
+              <p>أصدقاء</p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-2">
+              <p className="text-base font-black text-slate-900">6</p>
+              <p>منشورات</p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-2">
+              <p className="text-base font-black text-slate-900">12</p>
+              <p>قصص</p>
             </div>
           </div>
         </div>

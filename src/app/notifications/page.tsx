@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { Search, Loader2, Bell } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -14,51 +14,59 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<NotifItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchNotifications = useCallback(async () => {
-    setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+  useEffect(() => {
+    let active = true;
 
-    if (user) {
-      const { data } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+    const fetchNotifications = async () => {
+      setLoading(true);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      if (data) setNotifications(data as NotifItem[]);
-    }
-    setLoading(false);
+      if (user) {
+        const { data } = await supabase
+          .from("notifications")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+
+        if (active && data) setNotifications(data as NotifItem[]);
+      }
+      if (active) setLoading(false);
+    };
+
+    void fetchNotifications();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
-
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 pb-24 dir-rtl font-sans">
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm">
+    <div className="min-h-screen bg-slate-100 pb-24 text-slate-900 dir-rtl font-sans">
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 shadow-sm">
         <h1 className="text-lg font-black text-slate-900">الإشعارات</h1>
-        <button className="p-2 rounded-full bg-slate-100 text-slate-700">
-          <Search className="w-5 h-5" />
+        <button className="rounded-full bg-slate-100 p-2 text-slate-700">
+          <Search className="h-5 w-5" />
         </button>
       </header>
 
-      <main className="max-w-md mx-auto p-4 space-y-4">
+      <main className="mx-auto max-w-2xl space-y-4 p-4">
         {loading ? (
           <div className="flex justify-center py-12">
-            <Loader2 className="w-7 h-7 animate-spin text-blue-600" />
+            <Loader2 className="h-7 w-7 animate-spin text-blue-600" />
           </div>
         ) : notifications.length === 0 ? (
-          <div className="bg-white p-8 rounded-2xl text-center text-xs text-slate-400 border border-slate-200 shadow-sm flex flex-col items-center gap-2">
-            <Bell className="w-8 h-8 text-slate-300" />
+          <div className="flex flex-col items-center gap-2 rounded-[1.5rem] border border-slate-200 bg-white p-8 text-center text-xs text-slate-400 shadow-sm">
+            <Bell className="h-8 w-8 text-slate-300" />
             <span>لا توجد إشعارات جديدة حالياً</span>
           </div>
         ) : (
           notifications.map((notif) => (
-            <div key={notif.id} className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm text-right space-y-1">
-              <p className="text-xs text-slate-800 font-medium">{notif.content}</p>
+            <div key={notif.id} className="space-y-1 rounded-[1.25rem] border border-slate-200 bg-white p-3.5 text-right shadow-sm">
+              <p className="text-xs font-medium text-slate-800">{notif.content}</p>
               <span className="text-[10px] text-slate-400">
-                {new Date(notif.created_at).toLocaleTimeString("ar-EG", { hour: '2-digit', minute: '2-digit' })}
+                {new Date(notif.created_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
               </span>
             </div>
           ))

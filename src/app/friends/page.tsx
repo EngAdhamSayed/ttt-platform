@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Search, UserPlus, UserX } from "lucide-react";
+import { Search, UserPlus, CheckCircle2 } from "lucide-react";
 
 export default function FriendsPage() {
   const friendRequests = [
@@ -49,8 +49,9 @@ export default function FriendsPage() {
                   <p className="text-[10px] text-slate-500">{req.mutual}</p>
                   
                   <div className="flex gap-2 pt-1">
-                    <button className="flex-1 bg-blue-600 text-white font-bold py-1.5 rounded-xl text-xs hover:bg-blue-700 transition">
-                      تأكيد
+                    <button className="flex-1 bg-blue-600 text-white font-bold py-1.5 rounded-xl text-xs hover:bg-blue-700 transition flex items-center justify-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>تأكيد</span>
                     </button>
                     <button className="flex-1 bg-slate-200 text-slate-700 font-bold py-1.5 rounded-xl text-xs hover:bg-slate-300 transition">
                       حذف
