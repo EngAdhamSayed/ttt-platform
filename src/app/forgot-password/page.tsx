@@ -1,29 +1,24 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Mail, Lock, Eye, EyeOff, Sparkles, CheckCircle2 } from "lucide-react";
+import { Loader2, Mail, Lock, Sparkles, KeyRound, ArrowRight } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [step, setStep] = useState<"request" | "verify">("request");
   const [loading, setLoading] = useState(false);
-  const [step, setStep] = useState<"email" | "otp" | "success">("email");
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const otpRefs = [
-    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)
-  ];
   const router = useRouter();
 
-  const handleSendResetEmail = async (e: React.FormEvent) => {
+  // إرسال كود استعادة كلمة السر
+  const handleRequestReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMessage(null);
@@ -32,157 +27,140 @@ export default function ForgotPasswordPage() {
 
     if (error) {
       setErrorMessage(error.message);
-      setLoading(false);
     } else {
-      setLoading(false);
-      setStep("otp");
+      setMessage("تم إرسال رمز/رابط إعادة التعيين إلى بريدك الإلكتروني.");
+      setStep("verify");
     }
+    setLoading(false);
   };
 
-  const handleOtpChange = (index: number, value: string) => {
-    if (value.length > 1) value = value[value.length - 1];
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
-
-    if (value && index < 5) {
-      otpRefs[index + 1].current?.focus();
-    }
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
+  // تأكيد الرمز وتعديل كلمة المرور
+  const handleVerifyAndReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      setErrorMessage("كلمتا السر غير متطابقتين.");
-      return;
-    }
-
     setLoading(true);
-    const token = otp.join("");
+    setErrorMessage(null);
 
-    const { error } = await supabase.auth.verifyOtp({
+    // 1. تأكيد الرمز
+    const { error: verifyError } = await supabase.auth.verifyOtp({
       email: email.trim(),
-      token,
+      token: otpCode.trim(),
       type: "recovery",
     });
 
-    if (error) {
-      setErrorMessage("رمز التحقق غير صحيح.");
+    if (verifyError) {
+      setErrorMessage("رمز إعادة التعيين غير صحيح.");
       setLoading(false);
       return;
     }
 
-    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+    // 2. تحديث كلمة المرور
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword.trim(),
+    });
 
     if (updateError) {
       setErrorMessage(updateError.message);
-      setLoading(false);
     } else {
-      setStep("success");
+      alert("تم تغيير كلمة السر بنجاح! يمكنك الآن تسجيل الدخول.");
+      router.push("/login");
     }
+    setLoading(false);
   };
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#faf8f5] text-slate-900 flex flex-col justify-between items-center p-4 dir-rtl font-sans select-none">
       <div></div>
 
-      {step === "email" && (
-        <div className="bg-white p-6 rounded-3xl border border-orange-100 shadow-sm w-full max-w-sm space-y-4 text-right">
-          <div className="flex flex-col items-center justify-center space-y-1 text-center">
-            <div className="w-10 h-10 rounded-2xl bg-orange-500 text-white flex items-center justify-center shadow-md">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <h1 className="text-lg font-black text-slate-900">إعادة تعيين كلمة السر</h1>
+      <div className="bg-white p-6 rounded-3xl border border-orange-100 shadow-sm w-full max-w-sm space-y-4 text-right my-auto">
+        <div className="flex flex-col items-center justify-center space-y-1.5 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20">
+            <Sparkles className="w-6 h-6" />
           </div>
+          <h1 className="text-xl font-black text-slate-900 tracking-wide">استعادة كلمة السر</h1>
+          <p className="text-[10px] font-bold text-orange-600">أدخل إيميلك لاستلام كود إعادة التعيين</p>
+        </div>
 
-          {errorMessage && <div className="bg-red-50 text-red-600 text-[11px] p-2 rounded-xl text-center font-bold">{errorMessage}</div>}
+        {errorMessage && (
+          <div className="bg-red-50 border border-red-100 text-red-600 text-[11px] p-2.5 rounded-2xl text-center font-bold">
+            {errorMessage}
+          </div>
+        )}
 
-          <form onSubmit={handleSendResetEmail} className="space-y-3">
+        {message && (
+          <div className="bg-green-50 border border-green-100 text-green-700 text-[11px] p-2.5 rounded-2xl text-center font-bold">
+            {message}
+          </div>
+        )}
+
+        {step === "request" ? (
+          <form onSubmit={handleRequestReset} className="space-y-3">
             <div className="relative">
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="البريد الإلكتروني"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs pr-10 focus:outline-none focus:border-orange-500 text-right"
+                placeholder="البريد الإلكتروني المسجل"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs pr-10 focus:outline-none focus:border-orange-500 focus:bg-white text-right transition"
               />
               <Mail className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5" />
             </div>
 
-            <button type="submit" disabled={loading} className="w-full bg-orange-500 text-white font-bold py-3 rounded-xl text-xs flex justify-center items-center gap-2">
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>إرسال رمز إعادة التعيين</span>}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-2xl text-xs flex justify-center items-center gap-2 transition shadow-md shadow-orange-500/20 disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>إرسال كود الاستعادة</span>}
             </button>
           </form>
-        </div>
-      )}
-
-      {step === "otp" && (
-        <div className="bg-white p-6 rounded-3xl border border-orange-100 shadow-sm w-full max-w-sm space-y-4 text-right">
-          <h2 className="text-sm font-bold text-slate-900 text-center">أدخل الرمز وكلمة السر الجديدة</h2>
-
-          {errorMessage && <div className="bg-red-50 text-red-600 text-[11px] p-2 rounded-xl text-center font-bold">{errorMessage}</div>}
-
-          <div className="flex justify-center gap-2 dir-ltr py-2">
-            {otp.map((digit, i) => (
-              <input
-                key={i}
-                ref={otpRefs[i]}
-                type="text"
-                maxLength={1}
-                value={digit}
-                onChange={(e) => handleOtpChange(i, e.target.value)}
-                className="w-9 h-11 text-center text-base font-bold bg-slate-50 border border-slate-200 rounded-xl focus:border-orange-500 focus:outline-none"
-              />
-            ))}
-          </div>
-
-          <form onSubmit={handleResetPassword} className="space-y-2.5">
+        ) : (
+          <form onSubmit={handleVerifyAndReset} className="space-y-3">
             <div className="relative">
               <input
-                type={showPassword ? "text" : "password"}
+                type="text"
                 required
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="كلمة السر الجديدة"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs pr-9 focus:outline-none focus:border-orange-500 text-right"
+                maxLength={6}
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value)}
+                placeholder="كود الـ OTP (6 أرقام)"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs text-center tracking-widest font-bold focus:outline-none focus:border-orange-500 focus:bg-white transition"
               />
-              <Lock className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+              <KeyRound className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5" />
             </div>
 
             <div className="relative">
               <input
                 type="password"
                 required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="تأكيد كلمة السر الجديدة"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs pr-9 focus:outline-none focus:border-orange-500 text-right"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="كلمة السر الجديدة"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs pr-10 focus:outline-none focus:border-orange-500 focus:bg-white text-right transition"
               />
-              <Lock className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+              <Lock className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5" />
             </div>
 
-            <button type="submit" disabled={loading} className="w-full bg-orange-500 text-white font-bold py-2.5 rounded-xl text-xs flex justify-center items-center gap-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-2xl text-xs flex justify-center items-center gap-2 transition shadow-md shadow-orange-500/20 disabled:opacity-50"
+            >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>حفظ كلمة السر الجديدة</span>}
             </button>
           </form>
-        </div>
-      )}
+        )}
 
-      {step === "success" && (
-        <div className="bg-white p-6 rounded-3xl border border-orange-100 shadow-sm w-full max-w-sm text-center space-y-4">
-          <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
-          <h2 className="text-base font-black text-slate-900">تم تغيير كلمة السر بنجاح!</h2>
-          <button onClick={() => router.push("/login")} className="w-full bg-orange-500 text-white font-bold py-2.5 rounded-xl text-xs">
-            تسجيل الدخول الآن
-          </button>
+        <div className="text-center pt-2 border-t border-slate-100 text-xs">
+          <Link href="/login" className="text-orange-600 font-bold hover:underline flex items-center justify-center gap-1">
+            <ArrowRight className="w-3.5 h-3.5" />
+            <span>العودة لصفحة تسجيل الدخول</span>
+          </Link>
         </div>
-      )}
+      </div>
 
       <footer className="text-center space-y-1 pb-4">
-        <p className="text-[10px] text-slate-500 font-bold">
-          جميع الحقوق محفوظة TTT Platform by Beta 2026 ©
-        </p>
+        <p className="text-[10px] text-slate-500 font-bold">جميع الحقوق محفوظة TTT Platform by Beta 2026 ©</p>
       </footer>
     </div>
   );
