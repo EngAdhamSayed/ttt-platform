@@ -1,74 +1,189 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Loader2, Mail, Sparkles } from "lucide-react";
+import { Loader2, Mail, Lock, Eye, EyeOff, Sparkles, CheckCircle2 } from "lucide-react";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [step, setStep] = useState<"email" | "otp" | "success">("email");
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleReset = async (e: React.FormEvent<HTMLFormElement>) => {
+  const otpRefs = [
+    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)
+  ];
+  const router = useRouter();
+
+  const handleSendResetEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMessage("");
+    setErrorMessage(null);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+
+    if (error) {
+      setErrorMessage(error.message);
+      setLoading(false);
+    } else {
+      setLoading(false);
+      setStep("otp");
+    }
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (value.length > 1) value = value[value.length - 1];
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    if (value && index < 5) {
+      otpRefs[index + 1].current?.focus();
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      setErrorMessage("كلمتا السر غير متطابقتين.");
+      return;
+    }
+
+    setLoading(true);
+    const token = otp.join("");
+
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token,
+      type: "recovery",
     });
 
     if (error) {
-      alert("حدث خطأ: " + error.message);
-    } else {
-      setMessage("تم إرسال رابط إعادة ضبط كلمة السر إلى بريدك الإلكتروني بنجاح!");
+      setErrorMessage("رمز التحقق غير صحيح.");
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+
+    if (updateError) {
+      setErrorMessage(updateError.message);
+      setLoading(false);
+    } else {
+      setStep("success");
+    }
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[radial-gradient(circle_at_top,_#fff7ed,_#fffbeb_65%,_#fed7aa)] p-4 dir-rtl font-sans">
-      <div className="w-full max-w-sm space-y-4 rounded-[1.5rem] border border-orange-200 bg-white p-6 text-right shadow-[0_16px_45px_rgba(249,115,22,0.12)]">
-        <Link href="/login" className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 transition hover:text-orange-600">
-          <ArrowRight className="h-4 w-4" />
-          <span>الرجوع للتسجيل</span>
-        </Link>
+    <div className="h-screen w-screen overflow-hidden bg-[#faf8f5] text-slate-900 flex flex-col justify-between items-center p-4 dir-rtl font-sans select-none">
+      <div></div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-100 text-orange-600">
-            <Sparkles className="h-5 w-5" />
+      {step === "email" && (
+        <div className="bg-white p-6 rounded-3xl border border-orange-100 shadow-sm w-full max-w-sm space-y-4 text-right">
+          <div className="flex flex-col items-center justify-center space-y-1 text-center">
+            <div className="w-10 h-10 rounded-2xl bg-orange-500 text-white flex items-center justify-center shadow-md">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <h1 className="text-lg font-black text-slate-900">إعادة تعيين كلمة السر</h1>
           </div>
-          <div className="space-y-1">
-            <h1 className="text-xl font-black text-slate-900">استعادة كلمة السر</h1>
-            <p className="text-xs text-slate-500">أدخل بريدك الإلكتروني وسنرسل لك رابطاً لإعادة تعيين كلمة السر.</p>
-          </div>
+
+          {errorMessage && <div className="bg-red-50 text-red-600 text-[11px] p-2 rounded-xl text-center font-bold">{errorMessage}</div>}
+
+          <form onSubmit={handleSendResetEmail} className="space-y-3">
+            <div className="relative">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="البريد الإلكتروني"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs pr-10 focus:outline-none focus:border-orange-500 text-right"
+              />
+              <Mail className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5" />
+            </div>
+
+            <button type="submit" disabled={loading} className="w-full bg-orange-500 text-white font-bold py-3 rounded-xl text-xs flex justify-center items-center gap-2">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>إرسال رمز إعادة التعيين</span>}
+            </button>
+          </form>
         </div>
+      )}
 
-        {message && <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-xs text-orange-700">{message}</div>}
+      {step === "otp" && (
+        <div className="bg-white p-6 rounded-3xl border border-orange-100 shadow-sm w-full max-w-sm space-y-4 text-right">
+          <h2 className="text-sm font-bold text-slate-900 text-center">أدخل الرمز وكلمة السر الجديدة</h2>
 
-        <form onSubmit={handleReset} className="space-y-3">
-          <div className="relative">
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="البريد الإلكتروني"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 pr-10 text-xs outline-none transition focus:border-orange-500"
-            />
-            <Mail className="absolute right-3.5 top-3.5 h-4 w-4 text-slate-400" />
+          {errorMessage && <div className="bg-red-50 text-red-600 text-[11px] p-2 rounded-xl text-center font-bold">{errorMessage}</div>}
+
+          <div className="flex justify-center gap-2 dir-ltr py-2">
+            {otp.map((digit, i) => (
+              <input
+                key={i}
+                ref={otpRefs[i]}
+                type="text"
+                maxLength={1}
+                value={digit}
+                onChange={(e) => handleOtpChange(i, e.target.value)}
+                className="w-9 h-11 text-center text-base font-bold bg-slate-50 border border-slate-200 rounded-xl focus:border-orange-500 focus:outline-none"
+              />
+            ))}
           </div>
 
-          <button
-            type="submit"
-            disabled={loading || !email.trim()}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-600 py-3 text-xs font-bold text-white transition hover:bg-orange-700 disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <span>إرسال الرابط</span>}
+          <form onSubmit={handleResetPassword} className="space-y-2.5">
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="كلمة السر الجديدة"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs pr-9 focus:outline-none focus:border-orange-500 text-right"
+              />
+              <Lock className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+            </div>
+
+            <div className="relative">
+              <input
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="تأكيد كلمة السر الجديدة"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs pr-9 focus:outline-none focus:border-orange-500 text-right"
+              />
+              <Lock className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+            </div>
+
+            <button type="submit" disabled={loading} className="w-full bg-orange-500 text-white font-bold py-2.5 rounded-xl text-xs flex justify-center items-center gap-2">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>حفظ كلمة السر الجديدة</span>}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {step === "success" && (
+        <div className="bg-white p-6 rounded-3xl border border-orange-100 shadow-sm w-full max-w-sm text-center space-y-4">
+          <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
+          <h2 className="text-base font-black text-slate-900">تم تغيير كلمة السر بنجاح!</h2>
+          <button onClick={() => router.push("/login")} className="w-full bg-orange-500 text-white font-bold py-2.5 rounded-xl text-xs">
+            تسجيل الدخول الآن
           </button>
-        </form>
-      </div>
+        </div>
+      )}
+
+      <footer className="text-center space-y-1 pb-4">
+        <p className="text-[10px] text-slate-500 font-bold">
+          جميع الحقوق محفوظة TTT Platform by Beta 2026 ©
+        </p>
+      </footer>
     </div>
   );
 }

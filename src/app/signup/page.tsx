@@ -1,193 +1,249 @@
 "use client";
-import { useState, type FormEvent } from "react";
-import { supabase } from "@/lib/supabase";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Sparkles, UserRoundPlus, Send } from "lucide-react";
 
-const passwordPolicy = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+import React, { useState, useRef } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Loader2, Mail, Lock, Eye, EyeOff, User, Sparkles, CheckCircle2 } from "lucide-react";
 
 export default function SignupPage() {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
-  const [generatedCode, setGeneratedCode] = useState<string | null>(null);
-  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const [step, setStep] = useState<"signup" | "verify">("signup");
+  const [step, setStep] = useState<"form" | "otp" | "welcome">("form");
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  
+  const otpRefs = [
+    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)
+  ];
   const router = useRouter();
 
-  const normalizeEmail = (value: string) => value.trim().toLowerCase();
-  const generateCode = () => `${Math.floor(100000 + Math.random() * 900000)}`;
-
-  const handleSignup = async (e: FormEvent<HTMLFormElement>) => {
+  const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const normalizedEmail = normalizeEmail(email);
-    const safeFullName = fullName.trim();
+    setErrorMessage(null);
 
-    if (!normalizedEmail || !password || !safeFullName) {
-      setMessage("يرجى تعبئة جميع الحقول أولًا.");
+    if (password !== confirmPassword) {
+      setErrorMessage("كلمتا السر غير متطابقتين.");
       return;
     }
 
-    if (!passwordPolicy.test(password)) {
-      setMessage("كلمة المرور قوية يجب أن تكون 8 أحرف على الأقل وتحتوي على حروف كبيرة وصغيرة وأرقام ورموز.");
+    if (password.length < 8) {
+      setErrorMessage("كلمة السر يجب أن تكون 8 أحرف على الأقل.");
       return;
     }
 
     setLoading(true);
-    setMessage("");
 
-    const code = generateCode();
-    const expiry = Date.now() + 3 * 60 * 1000;
-    const { data, error } = await supabase.auth.signUp({
-      email: normalizedEmail,
-      password,
+    const { error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password: password.trim(),
       options: {
-        data: {
-          full_name: safeFullName,
-          verification_code: code,
-          is_verified: false,
-          verification_expires_at: expiry,
-        },
-      },
+        data: { full_name: `${firstName.trim()} ${lastName.trim()}` }
+      }
     });
 
     if (error) {
-      setMessage(error.message);
+      setErrorMessage(error.message);
       setLoading(false);
-      return;
+    } else {
+      setLoading(false);
+      setStep("otp");
     }
-
-    const userId = data.user?.id;
-    if (userId) {
-      await supabase.from("profiles").upsert(
-        {
-          id: userId,
-          full_name: safeFullName,
-          avatar_url: null,
-        },
-        { onConflict: "id" },
-      );
-    }
-
-    await fetch("/api/verify/send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: normalizedEmail,
-        fullName: safeFullName,
-        code,
-        expiresAt: expiry,
-      }),
-    });
-
-    setGeneratedCode(code);
-    setExpiresAt(expiry);
-    setVerificationCode("");
-    setStep("verify");
-    setMessage(`تم إنشاء الحساب بنجاح. تم إرسال رمز التحقق إلى بريدك الإلكتروني، ويظل صالحًا لمدة 3 دقائق.`);
-    setLoading(false);
   };
 
-  const handleVerifyCode = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!generatedCode || !verificationCode.trim()) {
-      setMessage("أدخل الرمز المكوّن من 6 أرقام أولًا.");
-      return;
+  const handleOtpChange = (index: number, value: string) => {
+    if (value.length > 1) value = value[value.length - 1];
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    if (value && index < 5) {
+      otpRefs[index + 1].current?.focus();
     }
 
-    if (!expiresAt || Date.now() > expiresAt) {
-      setMessage("انتهت صلاحية الرمز. يرجى إنشاء حساب جديد أو طلب رمز جديد.");
-      return;
+    if (newOtp.every((val) => val !== "")) {
+      verifyOtp(newOtp.join(""));
     }
+  };
 
-    if (verificationCode.trim() !== generatedCode) {
-      setMessage("الرمز غير صحيح. يرجى التأكد من الرقم الذي ظهر لك.");
-      return;
-    }
-
+  const verifyOtp = async (token: string) => {
     setLoading(true);
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    setErrorMessage(null);
 
-    if (userError || !user) {
-      setMessage("لم نتمكن من العثور على الحساب الحالي. حاول تسجيل الدخول مرة أخرى.");
-      setLoading(false);
-      return;
-    }
-
-    const { error } = await supabase.auth.updateUser({
-      data: {
-        is_verified: true,
-        verification_code: null,
-      },
+    const { data, error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token,
+      type: "signup",
     });
 
     if (error) {
-      setMessage(error.message);
+      setErrorMessage("رمز التحقق غير صحيح، يرجى المحاولة مرة أخرى.");
       setLoading(false);
-      return;
+    } else if (data.session) {
+      setStep("welcome");
     }
-
-    await supabase.from("profiles").upsert(
-      {
-        id: user.id,
-        full_name: fullName.trim(),
-        avatar_url: null,
-      },
-      { onConflict: "id" },
-    );
-
-    setMessage("تم التحقق من الحساب بنجاح. يمكنك الآن تسجيل الدخول.");
-    setLoading(false);
-    router.push("/login");
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[radial-gradient(circle_at_top,_#fff7ed,_#fffbeb_65%,_#fed7aa)] p-6 dir-rtl font-sans">
-      <div className="w-full max-w-sm rounded-[1.75rem] border border-orange-200 bg-white p-6 shadow-[0_16px_45px_rgba(249,115,22,0.12)]">
-        <div className="mb-5 flex items-center gap-2 text-orange-600">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-100">
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-black text-slate-900">إنشاء حساب جديد</h2>
-            <p className="text-[11px] text-slate-500">ابدأ رحلتك مع منصة TTT اليوم</p>
-          </div>
-        </div>
+    <div className="h-screen w-screen overflow-hidden bg-[#faf8f5] text-slate-900 flex flex-col justify-between items-center p-4 dir-rtl font-sans select-none">
+      <div></div>
 
-        <div className="mb-4 rounded-2xl border border-orange-100 bg-orange-50 px-3 py-2 text-[11px] text-orange-700">
-          ✨ عند إنشاء الحساب، سنرسل لك رمز تحقق إلى بريدك الإلكتروني. يبقى صالحًا لمدة 3 دقائق فقط.
-        </div>
-        {step === "signup" ? (
-          <form onSubmit={handleSignup} className="space-y-3">
-            <input required type="text" placeholder="الاسم الكامل" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none transition focus:border-orange-500" />
-            <input required type="email" placeholder="البريد الإلكتروني" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none transition focus:border-orange-500" />
-            <input required type="password" placeholder="كلمة السر" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-xl border border-slate-200 p-3 text-sm outline-none transition focus:border-orange-500" />
-            <button disabled={loading} type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-600 py-3 font-bold text-white transition hover:bg-orange-700 disabled:opacity-60">
-              <UserRoundPlus className="h-4 w-4" />
-              {loading ? "جاري إنشاء الحساب..." : "إنشاء الحساب"}
+      {step === "form" && (
+        <div className="bg-white p-6 rounded-3xl border border-orange-100 shadow-sm w-full max-w-sm space-y-3.5 text-right">
+          <div className="flex flex-col items-center justify-center space-y-1 text-center">
+            <div className="w-10 h-10 rounded-2xl bg-orange-500 text-white flex items-center justify-center shadow-md">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <h1 className="text-lg font-black text-slate-900">إنشاء حساب جديد</h1>
+          </div>
+
+          {errorMessage && (
+            <div className="bg-red-50 text-red-600 text-[11px] p-2 rounded-xl text-center font-bold">
+              {errorMessage}
+            </div>
+          )}
+
+          <form onSubmit={handleSignupSubmit} className="space-y-2.5">
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="text"
+                required
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="الاسم الأول"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none focus:border-orange-500 text-right"
+              />
+              <input
+                type="text"
+                required
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="الاسم الأخير"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs focus:outline-none focus:border-orange-500 text-right"
+              />
+            </div>
+
+            <div className="relative">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="البريد الإلكتروني"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs pr-9 focus:outline-none focus:border-orange-500 text-right"
+              />
+              <Mail className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+            </div>
+
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="كلمة السر (8 أحرف على الأقل)"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs pr-9 pl-9 focus:outline-none focus:border-orange-500 text-right"
+              />
+              <Lock className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute left-3 top-3 text-slate-400 hover:text-slate-600"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+
+            <div className="relative">
+              <input
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="تأكيد كلمة السر"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs pr-9 focus:outline-none focus:border-orange-500 text-right"
+              />
+              <Lock className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 rounded-xl text-xs flex justify-center items-center gap-2 disabled:opacity-50 transition"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>إنشاء الحساب</span>}
             </button>
           </form>
-        ) : (
-          <form onSubmit={handleVerifyCode} className="space-y-3">
-            <input required type="text" inputMode="numeric" maxLength={6} placeholder="أدخل رمز التحقق المكوّن من 6 أرقام" value={verificationCode} onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))} className="w-full rounded-xl border border-slate-200 p-3 text-center text-lg font-black tracking-[0.35em] outline-none transition focus:border-orange-500" />
-            <button disabled={loading} type="submit" className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-600 py-3 font-bold text-white transition hover:bg-orange-700 disabled:opacity-60">
-              <Send className="h-4 w-4" />
-              {loading ? "جاري التحقق..." : "تأكيد الكود"}
-            </button>
-          </form>
-        )}
-        {message ? <p className={`mt-3 text-center text-xs ${message.includes("تم") || message.includes("نجاح") ? "text-emerald-600" : "text-slate-600"}`}>{message}</p> : null}
-        <div className="mt-4 text-center text-xs text-slate-500">
-          لديك حساب بالفعل؟ <Link href="/login" className="font-bold text-orange-600">تسجيل الدخول</Link>
+
+          <div className="text-center pt-2 border-t border-slate-100 text-xs">
+            <span className="text-slate-500">لديك حساب بالفعل؟ </span>
+            <Link href="/login" className="text-orange-600 font-bold hover:underline">
+              تسجيل الدخول
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Step 2: 6 OTP Input Boxes */}
+      {step === "otp" && (
+        <div className="bg-white p-6 rounded-3xl border border-orange-100 shadow-sm w-full max-w-sm space-y-4 text-center">
+          <h2 className="text-sm font-bold text-slate-900">أدخل رمز التحقق المكون من 6 أرقام</h2>
+          <p className="text-[11px] text-slate-500">اكتب رمز التحقق الذي تم إرساله إلى بريدك الإلكتروني</p>
+
+          {errorMessage && (
+            <div className="bg-red-50 text-red-600 text-[11px] p-2 rounded-xl font-bold">
+              {errorMessage}
+            </div>
+          )}
+
+          <div className="flex justify-center gap-2 dir-ltr">
+            {otp.map((digit, i) => (
+              <input
+                key={i}
+                ref={otpRefs[i]}
+                type="text"
+                maxLength={1}
+                value={digit}
+                onChange={(e) => handleOtpChange(i, e.target.value)}
+                className="w-10 h-12 text-center text-lg font-bold bg-slate-50 border border-slate-200 rounded-xl focus:border-orange-500 focus:outline-none"
+              />
+            ))}
+          </div>
+
+          {loading && <Loader2 className="w-5 h-5 animate-spin mx-auto text-orange-500" />}
+        </div>
+      )}
+
+      {/* Step 3: Welcome Screen */}
+      {step === "welcome" && (
+        <div className="bg-white p-6 rounded-3xl border border-orange-100 shadow-sm w-full max-w-sm text-center space-y-4">
+          <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
+          <h2 className="text-base font-black text-slate-900">أهلاً بك يا {firstName}! 👋</h2>
+          <p className="text-xs text-slate-500">تم تسجيل حسابك بنجاح في TTT Platform.</p>
+          <button
+            onClick={() => {
+              router.push("/");
+              router.refresh();
+            }}
+            className="w-full bg-orange-500 text-white font-bold py-2.5 rounded-xl text-xs"
+          >
+            الانتقال للرئيسية
+          </button>
+        </div>
+      )}
+
+      <footer className="text-center space-y-1 pb-4">
+        <p className="text-[10px] text-slate-500 font-bold">
+          جميع الحقوق محفوظة TTT Platform by Beta 2026 ©
+        </p>
+      </footer>
     </div>
   );
 }
