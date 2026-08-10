@@ -25,7 +25,7 @@ export default function TermsPage() {
 
           <div className="space-y-1.5">
             <h3 className="font-bold text-slate-800">1. الأهلية العمرية:</h3>
-            <p className="text-[11px] text-slate-500">يجب أن يكون عمر المستخدم 18 عاماً أو أكثر للتمكن من إنشاء حساب واستخدام خيارات المنصة.</p>
+            <p className="text-[11px] text-slate-500">يجب أن يكون عمر المستخدم 18 عاماً أو أكثر للتمكن من إنشاء حساب واستخدام المنصة.</p>
           </div>
 
           <div className="space-y-1.5">
@@ -35,7 +35,7 @@ export default function TermsPage() {
 
           <div className="space-y-1.5">
             <h3 className="font-bold text-slate-800">3. إيقاف الحسابات:</h3>
-            <p className="text-[11px] text-slate-500">تحتفظ إدارة TTT Platform بحق تعليق أو إغلاق أي حساب يخالف شروط الاستخدام أو يحاول اختراق أمان الأبلكيشن.</p>
+            <p className="text-[11px] text-slate-500">تحتفظ إدارة TTT Platform بحق تعليق أو إغلاق أي حساب يخالف شروط الاستخدام.</p>
           </div>
         </div>
       </div>

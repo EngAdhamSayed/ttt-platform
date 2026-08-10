@@ -35,7 +35,7 @@ export default function PrivacyPage() {
 
           <div className="space-y-1.5">
             <h3 className="font-bold text-slate-800">3. حماية الحساب والأمان:</h3>
-            <p className="text-[11px] text-slate-500">جميع كلمات السر والبيانات الحساسة يتم تشفيرها باستخدام تقنيات Supabase الأمنية المتطورة لضمان عدم وصول أي شخص غير مصرح له إليها.</p>
+            <p className="text-[11px] text-slate-500">جميع كلمات السر والبيانات الحساسة يتم تشفيرها باستمرار لضمان عدم وصول أي شخص غير مصرح له إليها.</p>
           </div>
         </div>
       </div>
