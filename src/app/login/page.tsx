@@ -4,7 +4,8 @@ import React, { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, Mail, Lock, Eye, EyeOff, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -56,21 +57,19 @@ export default function LoginPage() {
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#faf8f5] text-slate-900 flex flex-col justify-between items-center p-4 dir-rtl font-sans select-none">
       
-      {/* هيدر علوي وهمي للمحافظة على التنسيق والمسافات */}
+      {/* هيدر علوي وهمي */}
       <div></div>
 
-      {/* الكارت الرئيسي لتسجيل الدخول */}
+      {/* كارت تسجيل الدخول */}
       <div className="bg-white p-6 rounded-3xl border border-orange-100 shadow-sm w-full max-w-sm space-y-4 text-right my-auto">
         
-        {/* اللوجو والشعار الرسمي لـ TTT Platform */}
-        <div className="flex flex-col items-center justify-center space-y-1.5 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20">
-            <Sparkles className="w-6 h-6" />
+        {/* اللوجو والشعار */}
+        <div className="flex flex-col items-center justify-center space-y-1 text-center">
+          <div className="w-12 h-12 relative mb-1">
+            <Image src="/logo.png" alt="TTT Logo" fill className="object-contain" priority />
           </div>
-          <div className="space-y-0.5">
-            <h1 className="text-xl font-black text-slate-900 tracking-wide">TTT Platform</h1>
-            <p className="text-[10px] font-bold text-orange-600">تجربة اجتماعية أنيقة وسريعة</p>
-          </div>
+          <h1 className="text-xl font-black text-slate-900 tracking-wide">تسجيل الدخول</h1>
+          <p className="text-[10px] font-bold text-orange-600">أهلاً بك مجدداً في منصة TTT Platform</p>
         </div>
 
         {/* تنبيه بالخطأ إن وجد */}
@@ -80,7 +79,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* نموذج تسجيل الدخول التقليدي */}
+        {/* نموذج تسجيل الدخول */}
         <form onSubmit={handleLogin} className="space-y-3">
           <div className="relative">
             <input
@@ -128,14 +127,14 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* فاصل بين الطرق */}
+        {/* فاصل */}
         <div className="relative flex py-0.5 items-center">
           <div className="flex-grow border-t border-slate-100"></div>
           <span className="flex-shrink mx-2 text-[10px] text-slate-400 font-bold">أو</span>
           <div className="flex-grow border-t border-slate-100"></div>
         </div>
 
-        {/* زرار الدخول السريع بـ Google */}
+        {/* زرار جوجل */}
         <button
           type="button"
           onClick={handleGoogleLogin}
@@ -152,10 +151,10 @@ export default function LoginPage() {
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
             </svg>
           )}
-          <span>{googleLoading ? "جاري الاتصال بـ Google..." : "المتابعة باستخدام Google"}</span>
+          <span>المتابعة بواسطة Google</span>
         </button>
 
-        {/* رابط إنشاء حساب جديد */}
+        {/* رابط إنشاء حساب */}
         <div className="text-center pt-2 border-t border-slate-100 text-xs">
           <span className="text-slate-500">ليس لديك حساب؟ </span>
           <Link href="/signup" className="text-orange-600 font-bold hover:underline">
@@ -165,7 +164,7 @@ export default function LoginPage() {
 
       </div>
 
-      {/* الفوتر المخصص بالتحديد كما طلبته */}
+      {/* الفوتر */}
       <footer className="text-center space-y-1 pb-4">
         <p className="text-[10px] text-slate-500 font-bold">
           جميع الحقوق محفوظة TTT Platform by Beta 2026 ©
