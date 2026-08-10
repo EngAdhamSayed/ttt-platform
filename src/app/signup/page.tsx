@@ -426,7 +426,7 @@ export default function SignupPage() {
         </div>
       </div>
 
-      <footer className="text-center space-y-1 pb-2">
+      <footer className="text-center space-y-0 pb-2">
         <p className="text-[10px] text-slate-500 font-bold">جميع الحقوق محفوظة TTT Platform by Beta 2026 ©</p>
       </footer>
     </div>
