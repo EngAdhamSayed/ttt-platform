@@ -55,7 +55,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#faf8f5] text-slate-900 flex flex-col justify-between items-center p-4 dir-rtl font-sans select-none">
+    // h-screen: تجعل طول الـ div يساوي طول الشاشة بالضبط
+    // overflow-hidden: تمنع ظهور أي شريط سكرول
+    // justify-between: توزع العناصر (الفورم فوق والفوتر تحت) مع ترك مسافة بينهم
+    <div className="h-screen w-screen overflow-hidden bg-[#faf8f5] text-slate-900 flex flex-col justify-between items-center p-6 dir-rtl font-sans select-none">
       
       {/* هيدر علوي وهمي */}
       <div></div>

@@ -162,7 +162,10 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#faf8f5] text-slate-900 flex flex-col justify-between items-center p-3 dir-rtl font-sans select-none">
+    // h-screen: تجعل طول الـ div يساوي طول الشاشة بالضبط
+    // overflow-hidden: تمنع ظهور أي شريط سكرول
+    // justify-between: توزع العناصر (الفورم فوق والفوتر تحت) مع ترك مسافة بينهم
+    <div className="h-screen w-screen overflow-hidden bg-[#faf8f5] text-slate-900 flex flex-col justify-between items-center p-6 dir-rtl font-sans select-none">
       <div></div>
 
       <div className="bg-white p-5 rounded-3xl border border-orange-100 shadow-sm w-full max-w-sm space-y-3 text-right my-auto overflow-y-auto max-h-[90vh] no-scrollbar">
@@ -366,7 +369,8 @@ export default function SignupPage() {
                   value={digit}
                   onChange={(e) => handleOtpChange(idx, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                  className="w-10 h-12 bg-slate-50 border border-slate-200 rounded-xl text-center text-lg font-black focus:outline-none focus:border-orange-500 focus:bg-white text-slate-900 transition"
+                  className="w-10 h-12 bg-slate-50 border border-slate-200 rounded-xl text-center text-lg font-black focus:outline-none focus:border-orange-500 focus:bg-white text-slate-900 transition
+                  w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-sm focus:outline-none focus:border-orange-500 focus:bg-white text-right pr-10 dir-ltr text-left"
                 />
               ))}
             </div>
