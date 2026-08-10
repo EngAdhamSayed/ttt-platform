@@ -165,19 +165,10 @@ export default function LoginPage() {
       </div>
 
       {/* الفوتر */}
-      <footer className="text-center space-y-1 pb-4">
+      <footer className="text-center pb-4">
         <p className="text-[10px] text-slate-500 font-bold">
           جميع الحقوق محفوظة TTT Platform by Beta 2026 ©
         </p>
-        <div className="flex justify-center gap-3 text-[10px] text-slate-400 font-bold">
-          <Link href="/privacy" className="hover:underline hover:text-orange-600 transition">
-            سياسة الخصوصية
-          </Link>
-          <span>•</span>
-          <Link href="/terms" className="hover:underline hover:text-orange-600 transition">
-            شروط الاستخدام
-          </Link>
-        </div>
       </footer>
 
     </div>
