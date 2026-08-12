@@ -32,18 +32,16 @@ import {
   Bell,
   User,
   Share2,
-  ThumbsUp,
   Mic,
   Square,
-  Volume2,
   MoreHorizontal,
   Video,
   Type,
   Globe,
   Lock,
+  Loader2,
 } from "lucide-react";
 
-// واجهات البيانات
 interface CommentReply {
   id: string;
   authorName: string;
@@ -64,18 +62,18 @@ interface Comment {
 
 interface Post {
   id: string;
-  authorName: string;
-  authorAvatar: string;
-  authorId: string;
+  author_name: string;
+  author_avatar: string;
+  user_id: string;
   content: string;
-  mediaUrl?: string;
-  mediaType?: "image" | "video";
+  media_url?: string;
+  media_type?: "image" | "video";
   privacy: "public" | "friends";
-  createdAt: string;
-  reaction: string | null;
-  reactionsCount: number;
-  comments: Comment[];
-  sharesCount: number;
+  created_at: string;
+  reaction?: string | null;
+  reactionsCount?: number;
+  comments?: Comment[];
+  sharesCount?: number;
 }
 
 interface Story {
@@ -91,17 +89,14 @@ interface Story {
 export default function HomePage() {
   const router = useRouter();
 
-  // 1️⃣ حالات القائمة الجانبية والبحث
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // 2️⃣ حالات القوائم المنسدلة في السايد بار
   const [openEvents, setOpenEvents] = useState(false);
   const [openFavorites, setOpenFavorites] = useState(false);
   const [openGames, setOpenGames] = useState(false);
 
-  // 3️⃣ بيانات المستخدم الحالي الحقيقية من Supabase
   const [userData, setUserData] = useState({
     id: "",
     fullName: "جاري التحميل...",
@@ -110,57 +105,118 @@ export default function HomePage() {
     avatarChar: "U",
   });
 
-  // 4️⃣ حالات المنشورات والقصص
   const [posts, setPosts] = useState<Post[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(true);
   const [postText, setPostText] = useState("");
   const [postPrivacy, setPostPrivacy] = useState<"public" | "friends">("public");
   const [selectedMedia, setSelectedMedia] = useState<{ url: string; type: "image" | "video" } | null>(null);
+  const [isSubmittingPost, setIsSubmittingPost] = useState(false);
 
-  // 5️⃣ حالات القصص (Stories)
   const [stories, setStories] = useState<Story[]>([]);
   const [activeStory, setActiveStory] = useState<Story | null>(null);
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
   const [newStoryType, setNewStoryType] = useState<"text" | "image" | "video">("text");
   const [newStoryContent, setNewStoryContent] = useState("");
 
-  // 6️⃣ حالات التفاعلات والتعليقات الصوتية
   const [activeReactionPostId, setActiveReactionPostId] = useState<string | null>(null);
   const [expandedCommentsPostId, setExpandedCommentsPostId] = useState<string | null>(null);
   const [commentInputText, setCommentInputText] = useState<{ [postId: string]: string }>({});
   const [replyInputText, setReplyInputText] = useState<{ [commentId: string]: string }>({});
   const [activeReplyCommentId, setActiveReplyCommentId] = useState<string | null>(null);
 
-  // تسجيل الصوت للتعليق
   const [isRecording, setIsRecording] = useState(false);
   const [recordingPostId, setRecordingPostId] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
-  // 🔄 جلب بيانات المستخدم الحقيقي والتجهيز الأول
   useEffect(() => {
-    const fetchUserData = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const meta = session.user.user_metadata;
-        const name = meta?.full_name || meta?.first_name || session.user.email?.split("@")[0] || "مستخدم TTT";
-        const fName = meta?.first_name || name.split(" ")[0] || "مستخدم";
-        const shortId = `#${session.user.id.slice(0, 8)}`;
-        const firstLetter = name.charAt(0).toUpperCase();
-
-        setUserData({
-          id: session.user.id,
-          fullName: name,
-          firstName: fName,
-          idNumber: shortId,
-          avatarChar: firstLetter,
-        });
-      }
-    };
-
     fetchUserData();
+    fetchPostsFromSupabase();
   }, []);
 
-  // 🎙️ بدء وتسجيل تعليق صوتي
+  const fetchUserData = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      const meta = session.user.user_metadata;
+      const name = meta?.full_name || meta?.first_name || session.user.email?.split("@")[0] || "مستخدم TTT";
+      const fName = meta?.first_name || name.split(" ")[0] || "مستخدم";
+      const shortId = `#${session.user.id.slice(0, 8)}`;
+      const firstLetter = name.charAt(0).toUpperCase();
+
+      setUserData({
+        id: session.user.id,
+        fullName: name,
+        firstName: fName,
+        idNumber: shortId,
+        avatarChar: firstLetter,
+      });
+    }
+  };
+
+  const fetchPostsFromSupabase = async () => {
+    setLoadingPosts(true);
+    const { data, error } = await supabase
+      .from("posts")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      const formattedPosts = data.map((item) => ({
+        ...item,
+        reactionsCount: 0,
+        comments: [],
+        sharesCount: 0,
+      }));
+      setPosts(formattedPosts);
+    }
+    setLoadingPosts(false);
+  };
+
+  const handleCreatePost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!postText.trim() && !selectedMedia) return;
+
+    setIsSubmittingPost(true);
+
+    const postPayload = {
+      user_id: userData.id,
+      author_name: userData.fullName,
+      author_avatar: userData.avatarChar,
+      content: postText.trim(),
+      media_url: selectedMedia?.url || null,
+      media_type: selectedMedia?.type || null,
+      privacy: postPrivacy,
+    };
+
+    const { data, error } = await supabase.from("posts").insert([postPayload]).select();
+
+    if (!error && data) {
+      setPosts([{ ...data[0], reactionsCount: 0, comments: [], sharesCount: 0 }, ...posts]);
+      setPostText("");
+      setSelectedMedia(null);
+    } else {
+      const localPost: Post = {
+        id: Date.now().toString(),
+        user_id: userData.id,
+        author_name: userData.fullName,
+        author_avatar: userData.avatarChar,
+        content: postText,
+        media_url: selectedMedia?.url,
+        media_type: selectedMedia?.type,
+        privacy: postPrivacy,
+        created_at: new Date().toISOString(),
+        reactionsCount: 0,
+        comments: [],
+        sharesCount: 0,
+      };
+      setPosts([localPost, ...posts]);
+      setPostText("");
+      setSelectedMedia(null);
+    }
+
+    setIsSubmittingPost(false);
+  };
+
   const startRecording = async (postId: string) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -176,8 +232,7 @@ export default function HomePage() {
       mediaRecorderRef.current.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         const audioUrl = URL.createObjectURL(audioBlob);
-        
-        // إضافة التعليق الصوتي للمنشور
+
         setPosts((prevPosts) =>
           prevPosts.map((p) => {
             if (p.id === postId) {
@@ -189,7 +244,7 @@ export default function HomePage() {
                 createdAt: "الآن",
                 replies: [],
               };
-              return { ...p, comments: [...p.comments, newComment] };
+              return { ...p, comments: [...(p.comments || []), newComment] };
             }
             return p;
           })
@@ -200,7 +255,7 @@ export default function HomePage() {
       setIsRecording(true);
       setRecordingPostId(postId);
     } catch {
-      alert("يرجى إعطاء صلاحية الميكروفون لتسجيل التعليق الصوتي.");
+      alert("يرجى إعطاء صلاحية الميكروفون للبدء التسجيل الصوتي.");
     }
   };
 
@@ -212,33 +267,6 @@ export default function HomePage() {
     }
   };
 
-  // 📝 نشر منشور جديد
-  const handleCreatePost = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!postText.trim() && !selectedMedia) return;
-
-    const newPost: Post = {
-      id: Date.now().toString(),
-      authorName: userData.fullName,
-      authorAvatar: userData.avatarChar,
-      authorId: userData.id,
-      content: postText,
-      mediaUrl: selectedMedia?.url,
-      mediaType: selectedMedia?.type,
-      privacy: postPrivacy,
-      createdAt: "الآن",
-      reaction: null,
-      reactionsCount: 0,
-      comments: [],
-      sharesCount: 0,
-    };
-
-    setPosts([newPost, ...posts]);
-    setPostText("");
-    setSelectedMedia(null);
-  };
-
-  // 📖 إضافة قصة جديدة
   const handleCreateStory = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStoryContent.trim()) return;
@@ -258,7 +286,6 @@ export default function HomePage() {
     setIsCreateStoryOpen(false);
   };
 
-  // 👍 إضافة تفاعل للمنشور
   const handleReact = (postId: string, reactionEmoji: string) => {
     setPosts((prevPosts) =>
       prevPosts.map((p) => {
@@ -267,7 +294,9 @@ export default function HomePage() {
           return {
             ...p,
             reaction: isSame ? null : reactionEmoji,
-            reactionsCount: isSame ? p.reactionsCount - 1 : p.reaction ? p.reactionsCount : p.reactionsCount + 1,
+            reactionsCount: isSame
+              ? (p.reactionsCount || 1) - 1
+              : (p.reactionsCount || 0) + 1,
           };
         }
         return p;
@@ -276,7 +305,6 @@ export default function HomePage() {
     setActiveReactionPostId(null);
   };
 
-  // 💬 إضافة تعليق نصي
   const handleAddComment = (postId: string) => {
     const text = commentInputText[postId];
     if (!text || !text.trim()) return;
@@ -292,7 +320,7 @@ export default function HomePage() {
             createdAt: "الآن",
             replies: [],
           };
-          return { ...p, comments: [...p.comments, newComment] };
+          return { ...p, comments: [...(p.comments || []), newComment] };
         }
         return p;
       })
@@ -301,7 +329,6 @@ export default function HomePage() {
     setCommentInputText({ ...commentInputText, [postId]: "" });
   };
 
-  // ↩️ إضافة رد على تعليق
   const handleAddReply = (postId: string, commentId: string) => {
     const text = replyInputText[commentId];
     if (!text || !text.trim()) return;
@@ -309,7 +336,7 @@ export default function HomePage() {
     setPosts((prevPosts) =>
       prevPosts.map((p) => {
         if (p.id === postId) {
-          const updatedComments = p.comments.map((c) => {
+          const updatedComments = (p.comments || []).map((c) => {
             if (c.id === commentId) {
               const newReply: CommentReply = {
                 id: Date.now().toString(),
@@ -332,16 +359,14 @@ export default function HomePage() {
     setActiveReplyCommentId(null);
   };
 
-  // 🔄 مشاركة المنشور
   const handleShare = (postId: string) => {
     setPosts((prevPosts) =>
-      prevPosts.map((p) => (p.id === postId ? { ...p, sharesCount: p.sharesCount + 1 } : p))
+      prevPosts.map((p) => (p.id === postId ? { ...p, sharesCount: (p.sharesCount || 0) + 1 } : p))
     );
     navigator.clipboard.writeText(`${window.location.origin}/post/${postId}`);
-    alert("تم نسخ رابط المنشور لسبورة اللصق بنجاح!");
+    alert("تم نسخ رابط المنشور بنجاح!");
   };
 
-  // 🚪 تسجيل الخروج
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
@@ -351,7 +376,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-[#faf8f5] text-slate-900 dir-rtl font-sans select-none pb-20">
       
-      {/* 🟢 1. الهيدر العلوي والتنقل */}
+      {/* 🟢 1. الهيدر العلوي */}
       <header className="sticky top-0 z-30 bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
           <button
@@ -373,7 +398,6 @@ export default function HomePage() {
         <div className="flex items-center gap-2">
           <span className="font-black text-lg text-slate-900 tracking-wide">TTT Platform</span>
           
-          {/* زر السايد بار تفتح في اتجاه اليمين الصحيح */}
           <button
             onClick={() => setIsSidebarOpen(true)}
             className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition"
@@ -383,7 +407,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* 🟢 2. شاشة البحث المنبثقة */}
+      {/* 🟢 2. شاشة البحث */}
       {isSearchOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-start justify-center pt-16 p-4">
           <div className="bg-white rounded-3xl p-4 w-full max-w-md space-y-3 shadow-2xl">
@@ -396,10 +420,7 @@ export default function HomePage() {
                 placeholder="ابحث عن أصدقاء، منشورات، مجموعات..."
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs focus:outline-none focus:border-orange-500 font-bold"
               />
-              <button
-                onClick={() => setIsSearchOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 transition"
-              >
+              <button onClick={() => setIsSearchOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -415,8 +436,6 @@ export default function HomePage() {
 
         {/* 📖 شريط القصص (Stories Bar) */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-          
-          {/* زر إضافة قصة جديدة */}
           <button
             onClick={() => setIsCreateStoryOpen(true)}
             className="flex-shrink-0 w-24 h-36 bg-white border-2 border-dashed border-orange-300 rounded-3xl p-2 flex flex-col items-center justify-between text-center hover:bg-orange-50/50 transition shadow-sm"
@@ -427,7 +446,6 @@ export default function HomePage() {
             <span className="text-[11px] font-black text-slate-800 pb-1">قصة جديدة</span>
           </button>
 
-          {/* قائمة القصص المضافة */}
           {stories.map((story) => (
             <div
               key={story.id}
@@ -445,7 +463,6 @@ export default function HomePage() {
               <span className="text-[9px] font-bold text-orange-200 text-right">{story.authorName}</span>
             </div>
           ))}
-
         </div>
 
         {/* ✏️ صندوق إنشاء منشور جديد */}
@@ -461,7 +478,6 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* تحديد الخصوصية */}
             <select
               value={postPrivacy}
               onChange={(e) => setPostPrivacy(e.target.value as "public" | "friends")}
@@ -480,7 +496,6 @@ export default function HomePage() {
             className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-3 text-xs focus:outline-none focus:border-orange-500 focus:bg-white transition resize-none font-medium text-slate-800 placeholder:text-slate-400"
           />
 
-          {/* المعاينة إن وجدت وسائط */}
           {selectedMedia && (
             <div className="relative rounded-2xl overflow-hidden border border-slate-200 max-h-48">
               {selectedMedia.type === "image" ? (
@@ -497,19 +512,17 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* أزرار الإضافة والتفاعل */}
           <div className="flex items-center justify-between pt-1">
             <button
               onClick={handleCreatePost}
-              disabled={!postText.trim() && !selectedMedia}
+              disabled={(!postText.trim() && !selectedMedia) || isSubmittingPost}
               className="bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white font-bold px-5 py-2 rounded-2xl text-xs flex items-center gap-1.5 transition shadow-sm shadow-orange-500/20"
             >
-              <Send className="w-3.5 h-3.5 rotate-180" />
+              {isSubmittingPost ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5 rotate-180" />}
               <span>نشر</span>
             </button>
 
             <div className="flex items-center gap-1.5">
-              {/* رفع صورة/فيديو */}
               <label className="cursor-pointer flex items-center gap-1 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-bold px-3 py-1.5 rounded-2xl transition">
                 <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
                 <span>وسائط</span>
@@ -536,8 +549,13 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 📰 قائمة المنشورات (Feed Posts) */}
-        {posts.length === 0 ? (
+        {/* 📰 عرض المنشورات المحفوظة دائمة البقاء */}
+        {loadingPosts ? (
+          <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm text-center flex justify-center items-center gap-2">
+            <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
+            <span className="text-xs font-bold text-slate-500">جاري تحميل المنشورات...</span>
+          </div>
+        ) : posts.length === 0 ? (
           <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm text-center">
             <p className="text-xs font-bold text-slate-400">لا توجد منشورات حتى الآن، كن أول من ينشر!</p>
           </div>
@@ -545,16 +563,15 @@ export default function HomePage() {
           posts.map((post) => (
             <div key={post.id} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 space-y-3">
               
-              {/* هيدر كرت المنشور */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-sm border-2 border-orange-500">
-                    {post.authorAvatar}
+                    {post.author_avatar || "U"}
                   </div>
                   <div>
-                    <h4 className="font-black text-xs text-slate-900">{post.authorName}</h4>
+                    <h4 className="font-black text-xs text-slate-900">{post.author_name}</h4>
                     <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold">
-                      <span>{post.createdAt}</span>
+                      <span>{new Date(post.created_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}</span>
                       <span>•</span>
                       <span>{post.privacy === "public" ? <Globe className="w-3 h-3 inline" /> : <Lock className="w-3 h-3 inline" />}</span>
                     </div>
@@ -566,34 +583,28 @@ export default function HomePage() {
                 </button>
               </div>
 
-              {/* نص المنشور */}
               <p className="text-xs text-slate-800 leading-relaxed font-medium text-right">{post.content}</p>
 
-              {/* وسائط المنشور */}
-              {post.mediaUrl && (
+              {post.media_url && (
                 <div className="rounded-2xl overflow-hidden border border-slate-100">
-                  {post.mediaType === "image" ? (
-                    <img src={post.mediaUrl} alt="Post Attachment" className="w-full object-cover max-h-80" />
+                  {post.media_type === "image" ? (
+                    <img src={post.media_url} alt="Post Attachment" className="w-full object-cover max-h-80" />
                   ) : (
-                    <video src={post.mediaUrl} controls className="w-full max-h-80" />
+                    <video src={post.media_url} controls className="w-full max-h-80" />
                   )}
                 </div>
               )}
 
-              {/* إحصائيات التفاعل */}
               <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 border-t border-b border-slate-50 py-2">
-                <span>{post.reactionsCount > 0 ? `${post.reactionsCount} تفاعلات` : "لا توجد تفاعلات"}</span>
+                <span>{(post.reactionsCount || 0) > 0 ? `${post.reactionsCount} تفاعلات` : "لا توجد تفاعلات"}</span>
                 <div className="flex gap-2">
-                  <span>{post.comments.length} تعليق</span>
+                  <span>{(post.comments || []).length} تعليق</span>
                   <span>•</span>
-                  <span>{post.sharesCount} مشاركة</span>
+                  <span>{post.sharesCount || 0} مشاركة</span>
                 </div>
               </div>
 
-              {/* أزرار التفاعل الرئيسية مع قائمة التفاعلات المنبثقة */}
               <div className="relative flex items-center justify-around text-xs font-bold text-slate-600 pt-1">
-                
-                {/* 1️⃣ زر التفاعل + التفاعلات المنبثقة Popover */}
                 <div className="relative">
                   <button
                     onClick={() => handleReact(post.id, "👍")}
@@ -606,18 +617,13 @@ export default function HomePage() {
                     <span>{post.reaction ? "تفاعلت" : "إعجاب"}</span>
                   </button>
 
-                  {/* قائمة التفاعلات المنبثقة (Reactions Popover) */}
                   {activeReactionPostId === post.id && (
                     <div
                       onMouseLeave={() => setActiveReactionPostId(null)}
                       className="absolute bottom-full right-0 mb-2 bg-white border border-orange-100 rounded-full p-1.5 shadow-2xl flex gap-2 z-40 animate-in fade-in zoom-in duration-150"
                     >
                       {["👍", "❤️", "😆", "😮", "😢", "😡"].map((emoji) => (
-                        <button
-                          key={emoji}
-                          onClick={() => handleReact(post.id, emoji)}
-                          className="hover:scale-125 transition text-lg p-1"
-                        >
+                        <button key={emoji} onClick={() => handleReact(post.id, emoji)} className="hover:scale-125 transition text-lg p-1">
                           {emoji}
                         </button>
                       ))}
@@ -625,32 +631,22 @@ export default function HomePage() {
                   )}
                 </div>
 
-                {/* 2️⃣ زر فتح التعليقات */}
                 <button
-                  onClick={() =>
-                    setExpandedCommentsPostId(expandedCommentsPostId === post.id ? null : post.id)
-                  }
+                  onClick={() => setExpandedCommentsPostId(expandedCommentsPostId === post.id ? null : post.id)}
                   className="flex items-center gap-1.5 p-2 rounded-xl hover:bg-slate-50 transition"
                 >
                   <MessageSquare className="w-4 h-4 text-slate-500" />
                   <span>تعليق</span>
                 </button>
 
-                {/* 3️⃣ زر المشاركة */}
-                <button
-                  onClick={() => handleShare(post.id)}
-                  className="flex items-center gap-1.5 p-2 rounded-xl hover:bg-slate-50 transition"
-                >
+                <button onClick={() => handleShare(post.id)} className="flex items-center gap-1.5 p-2 rounded-xl hover:bg-slate-50 transition">
                   <Share2 className="w-4 h-4 text-slate-500" />
                   <span>مشاركة</span>
                 </button>
               </div>
 
-              {/* 💬 قسم التعليقات الممتد (التعليقات الصوتية والنصية) */}
               {expandedCommentsPostId === post.id && (
                 <div className="pt-3 border-t border-slate-100 space-y-3">
-                  
-                  {/* صندوق إضافة تعليق (نصي أو صوتي) */}
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
@@ -660,7 +656,6 @@ export default function HomePage() {
                       className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-bold focus:outline-none focus:border-orange-500"
                     />
 
-                    {/* زر التسجيل الصوتي */}
                     <button
                       onClick={() => (isRecording && recordingPostId === post.id ? stopRecording() : startRecording(post.id))}
                       className={`p-2.5 rounded-2xl transition border ${
@@ -672,17 +667,13 @@ export default function HomePage() {
                       {isRecording && recordingPostId === post.id ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4 text-orange-500" />}
                     </button>
 
-                    <button
-                      onClick={() => handleAddComment(post.id)}
-                      className="bg-orange-500 text-white p-2.5 rounded-2xl hover:bg-orange-600 transition"
-                    >
+                    <button onClick={() => handleAddComment(post.id)} className="bg-orange-500 text-white p-2.5 rounded-2xl hover:bg-orange-600 transition">
                       <Send className="w-4 h-4 rotate-180" />
                     </button>
                   </div>
 
-                  {/* عرض قائمة التعليقات والردود عليها */}
                   <div className="space-y-2.5 pt-1">
-                    {post.comments.map((comment) => (
+                    {(post.comments || []).map((comment) => (
                       <div key={comment.id} className="bg-slate-50 p-2.5 rounded-2xl space-y-2 text-right">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
@@ -694,7 +685,6 @@ export default function HomePage() {
                           <span className="text-[9px] font-bold text-slate-400">{comment.createdAt}</span>
                         </div>
 
-                        {/* محتوى التعليق نصي أو صوتي */}
                         {comment.content && <p className="text-xs font-bold text-slate-700 pr-9">{comment.content}</p>}
                         {comment.audioUrl && (
                           <div className="pr-9 pt-1">
@@ -702,19 +692,15 @@ export default function HomePage() {
                           </div>
                         )}
 
-                        {/* زر الرد */}
                         <div className="pr-9 flex gap-3 text-[10px] font-bold text-slate-400">
                           <button
-                            onClick={() =>
-                              setActiveReplyCommentId(activeReplyCommentId === comment.id ? null : comment.id)
-                            }
+                            onClick={() => setActiveReplyCommentId(activeReplyCommentId === comment.id ? null : comment.id)}
                             className="hover:text-orange-600"
                           >
                             رد
                           </button>
                         </div>
 
-                        {/* صندوق الرد الفرعي */}
                         {activeReplyCommentId === comment.id && (
                           <div className="pr-9 pt-1 flex gap-2">
                             <input
@@ -724,17 +710,13 @@ export default function HomePage() {
                               placeholder="اكتب رداً..."
                               className="w-full bg-white border border-slate-200 rounded-xl p-2 text-xs font-bold focus:outline-none focus:border-orange-500"
                             />
-                            <button
-                              onClick={() => handleAddReply(post.id, comment.id)}
-                              className="bg-orange-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold"
-                            >
+                            <button onClick={() => handleAddReply(post.id, comment.id)} className="bg-orange-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold">
                               رد
                             </button>
                           </div>
                         )}
 
-                        {/* عرض الردود الفرعية */}
-                        {comment.replies.length > 0 && (
+                        {(comment.replies || []).length > 0 && (
                           <div className="pr-9 pt-1 space-y-1.5">
                             {comment.replies.map((reply) => (
                               <div key={reply.id} className="bg-white p-2 rounded-xl space-y-1 border border-slate-100">
@@ -761,14 +743,11 @@ export default function HomePage() {
 
       </main>
 
-      {/* 📖 4. شاشة عرض القصة النشطة (Story Viewer Modal) */}
+      {/* 📖 4. شاشة عرض القصة */}
       {activeStory && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="relative w-full max-w-sm h-[75vh] rounded-3xl bg-slate-900 text-white p-6 flex flex-col justify-between shadow-2xl overflow-hidden border border-slate-800">
-            <button
-              onClick={() => setActiveStory(null)}
-              className="absolute top-4 left-4 bg-white/20 p-2 rounded-full hover:bg-white/40 transition z-10"
-            >
+            <button onClick={() => setActiveStory(null)} className="absolute top-4 left-4 bg-white/20 p-2 rounded-full hover:bg-white/40 transition z-10">
               <X className="w-5 h-5 text-white" />
             </button>
 
@@ -791,7 +770,7 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ➕ 5. شاشة إنشاء قصة جديدة (Create Story Modal) */}
+      {/* ➕ 5. شاشة إنشاء قصة */}
       {isCreateStoryOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl text-right">
@@ -802,7 +781,6 @@ export default function HomePage() {
               </button>
             </div>
 
-            {/* اختيارات نوع القصة */}
             <div className="grid grid-cols-3 gap-2 text-xs font-bold">
               <button
                 type="button"
@@ -855,27 +833,20 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* 🔴 6. خلفية تعتيم الشاشة عند فتح السايد بار */}
+      {/* 🔴 6. خلفية تعتيم الشاشة للسايد بار */}
       {isSidebarOpen && (
-        <div
-          onClick={() => setIsSidebarOpen(false)}
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 transition-opacity"
-        />
+        <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 transition-opacity" />
       )}
 
-      {/* 🔴 7. القائمة الجانبية (Sidebar Drawer) تفتح من اتجاه اليمين الصحيح */}
+      {/* 🔴 7. القائمة الجانبية (Sidebar) */}
       <aside
         className={`fixed top-0 right-0 h-full w-[85%] max-w-xs bg-white z-50 shadow-2xl flex flex-col justify-between transition-transform duration-300 ease-in-out ${
           isSidebarOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className="p-4 space-y-4 overflow-y-auto max-h-[calc(100vh-80px)] no-scrollbar">
-          
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="p-2 rounded-2xl text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition"
-            >
+            <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-2xl text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition">
               <X className="w-5 h-5" />
             </button>
 
@@ -900,9 +871,7 @@ export default function HomePage() {
                 {userData.avatarChar}
               </div>
               <div className="text-right">
-                <h4 className="font-black text-xs text-slate-900 group-hover:text-orange-600 transition">
-                  {userData.fullName}
-                </h4>
+                <h4 className="font-black text-xs text-slate-900 group-hover:text-orange-600 transition">{userData.fullName}</h4>
                 <span className="text-[10px] font-bold text-slate-400 dir-ltr block">{userData.idNumber}</span>
               </div>
             </div>
@@ -935,7 +904,6 @@ export default function HomePage() {
 
           <hr className="border-slate-100" />
 
-          {/* الأحداث */}
           <div className="space-y-1">
             <button
               onClick={() => setOpenEvents(!openEvents)}
@@ -957,7 +925,6 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* الأشخاص المفضلة */}
           <div className="space-y-1">
             <button
               onClick={() => setOpenFavorites(!openFavorites)}
@@ -977,7 +944,6 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* الألعاب */}
           <div className="space-y-1">
             <button
               onClick={() => setOpenGames(!openGames)}
@@ -1000,7 +966,6 @@ export default function HomePage() {
 
           <hr className="border-slate-100" />
 
-          {/* مركز الإعلانات */}
           <div className="space-y-2 pt-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1034,10 +999,7 @@ export default function HomePage() {
             <span>الإعدادات والخصوصية</span>
           </Link>
 
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-2.5 p-2.5 rounded-2xl text-red-600 hover:bg-red-50 font-bold text-xs transition"
-          >
+          <button onClick={handleLogout} className="w-full flex items-center gap-2.5 p-2.5 rounded-2xl text-red-600 hover:bg-red-50 font-bold text-xs transition">
             <LogOut className="w-4 h-4 text-red-500" />
             <span>تسجيل الخروج</span>
           </button>

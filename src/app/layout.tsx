@@ -6,6 +6,9 @@ import AuthGuard from "@/components/AuthGuard";
 export const metadata: Metadata = {
   title: "TTT Platform | منصة التواصل الحرة",
   description: "منصة تواصل اجتماعي حديثة وحرة تشبه Facebook بصريًا وتعمل بسلاسة",
+  icons: {
+    icon: "/logo.png",
+  },
 };
 
 export default function RootLayout({
