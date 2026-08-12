@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Loader2, Mail, Lock, User, Eye, EyeOff, Calendar, Users } from "lucide-react";
+import { Loader2, Mail, Lock, User, Eye, EyeOff, Calendar, Users, ChevronDown } from "lucide-react";
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState("");
@@ -18,9 +18,14 @@ export default function SignupPage() {
   const [isPwdFocused, setIsPwdFocused] = useState(false);
   const [gender, setGender] = useState<"male" | "female" | "">("");
 
+  // حالات تاريخ الميلاد بالقوائم المخصصة
   const [day, setDay] = useState("");
   const [month, setMonth] = useState("");
   const [year, setYear] = useState("");
+
+  // حالات فتح وإغلاق القوائم المنسدلة الهوية
+  const [isDayOpen, setIsDayOpen] = useState(false);
+  const [isMonthOpen, setIsMonthOpen] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -33,6 +38,7 @@ export default function SignupPage() {
 
   const router = useRouter();
 
+  // فحص شروط كلمة السر المعقدة
   const pwdRules = {
     length: password.length >= 6,
     hasUpper: /[A-Z]/.test(password),
@@ -41,6 +47,7 @@ export default function SignupPage() {
   };
   const isPwdValid = pwdRules.length && pwdRules.hasUpper && pwdRules.hasNumber && pwdRules.hasSpecial;
 
+  // قائمة الشهور العربية
   const arabicMonths = [
     { value: "01", label: "يناير (1)" },
     { value: "02", label: "فبراير (2)" },
@@ -177,7 +184,7 @@ export default function SignupPage() {
   return (
     <div className="h-screen w-screen overflow-hidden bg-[#faf8f5] text-slate-900 flex flex-col justify-center items-center gap-2 p-3 dir-rtl font-sans select-none">
 
-      <div className="bg-white p-5 rounded-3xl border border-orange-100 shadow-md w-full max-w-sm space-y-3 text-right max-h-[85vh] overflow-y-auto no-scrollbar">
+      <div className="bg-white p-5 rounded-3xl border border-orange-100 shadow-md w-full max-w-sm space-y-3 text-right max-h-[88vh] overflow-y-auto no-scrollbar">
         
         <div className="flex flex-col items-center justify-center space-y-1 text-center">
           <div className="w-12 h-12 relative mb-0.5">
@@ -299,36 +306,70 @@ export default function SignupPage() {
               </div>
             )}
 
+            {/* تاريخ الميلاد: قائمة مخصصة بالهوية لليوم والشهر، وحقل كتابة للسنة */}
             <div className="space-y-1 text-right">
               <label className="text-xs font-bold text-slate-600 flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5 text-orange-500" />
                 <span>تاريخ الميلاد (يجب ألا يقل عن 18 عاماً)</span>
               </label>
+
               <div className="grid grid-cols-3 gap-1.5">
-                <select
-                  required
-                  value={day}
-                  onChange={(e) => setDay(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs text-center font-bold focus:border-orange-500 text-slate-800"
-                >
-                  <option value="">اليوم</option>
-                  {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
+                
+                {/* 1️⃣ قائمة الأيام المخصصة بالهوية */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => { setIsDayOpen(!isDayOpen); setIsMonthOpen(false); }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-bold text-slate-800 flex items-center justify-between hover:bg-orange-50/50 hover:border-orange-300 transition"
+                  >
+                    <span>{day || "اليوم"}</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-orange-500" />
+                  </button>
 
-                <select
-                  required
-                  value={month}
-                  onChange={(e) => setMonth(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs text-center font-bold focus:border-orange-500 text-slate-800"
-                >
-                  <option value="">الشهر</option>
-                  {arabicMonths.map((m) => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
+                  {isDayOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-orange-100 rounded-2xl shadow-xl z-50 max-h-40 overflow-y-auto no-scrollbar p-1 space-y-0.5">
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => { setDay(String(d)); setIsDayOpen(false); }}
+                          className="w-full text-right p-1.5 text-xs font-bold text-slate-700 hover:bg-orange-500 hover:text-white rounded-xl transition"
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
+                {/* 2️⃣ قائمة الشهور المخصصة بالهوية */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => { setIsMonthOpen(!isMonthOpen); setIsDayOpen(false); }}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-bold text-slate-800 flex items-center justify-between hover:bg-orange-50/50 hover:border-orange-300 transition"
+                  >
+                    <span className="truncate">{month ? arabicMonths.find(m => m.value === month)?.label : "الشهر"}</span>
+                    <ChevronDown className="w-3.5 h-3.5 text-orange-500" />
+                  </button>
+
+                  {isMonthOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-orange-100 rounded-2xl shadow-xl z-50 max-h-40 overflow-y-auto no-scrollbar p-1 space-y-0.5">
+                      {arabicMonths.map((m) => (
+                        <button
+                          key={m.value}
+                          type="button"
+                          onClick={() => { setMonth(m.value); setIsMonthOpen(false); }}
+                          className="w-full text-right p-1.5 text-xs font-bold text-slate-700 hover:bg-orange-500 hover:text-white rounded-xl transition truncate"
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3️⃣ حقل إدخال السنة */}
                 <input
                   type="number"
                   required
@@ -337,11 +378,12 @@ export default function SignupPage() {
                   placeholder="السنة"
                   value={year}
                   onChange={(e) => setYear(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs text-center font-bold focus:border-orange-500 text-slate-800"
+                  className="bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs text-center font-bold focus:outline-none focus:border-orange-500 focus:bg-white text-slate-800 placeholder:text-slate-400 transition"
                 />
               </div>
             </div>
 
+            {/* تحديد النوع */}
             <div className="space-y-1 pt-0.5 text-right">
               <label className="text-xs font-bold text-slate-600 flex items-center gap-1">
                 <Users className="w-3.5 h-3.5 text-orange-500" />
@@ -380,7 +422,6 @@ export default function SignupPage() {
               <span dir="ltr" className="font-bold text-slate-900 inline-block mt-0.5">{email}</span>
             </p>
 
-            {/* تم حسم الاتجاه هنا بـ dir="ltr" صريح لمنع انعكاس الـ Flexbox */}
             <div dir="ltr" className="flex flex-row justify-between gap-1.5 [direction:ltr]">
               {otpDigits.map((digit, idx) => (
                 <input
