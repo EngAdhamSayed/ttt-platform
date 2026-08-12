@@ -10,7 +10,10 @@ import { Loader2, Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isPwdFocused, setIsPwdFocused] = useState(false);
   const [step, setStep] = useState<"request" | "verify">("request");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -21,7 +24,7 @@ export default function ForgotPasswordPage() {
 
   const router = useRouter();
 
-  // فحص شروط كلمة السر
+  // فحص شروط كلمة السر المعقدة
   const pwdRules = {
     length: newPassword.length >= 6,
     hasUpper: /[A-Z]/.test(newPassword),
@@ -71,6 +74,11 @@ export default function ForgotPasswordPage() {
       return;
     }
 
+    if (newPassword !== confirmNewPassword) {
+      setErrorMessage("كلمتا السر غير متطابقتين.");
+      return;
+    }
+
     setLoading(true);
     const token = otpDigits.join("");
 
@@ -100,31 +108,27 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    // h-screen: تجعل طول الـ div يساوي طول الشاشة بالضبط
-    // overflow-hidden: تمنع ظهور أي شريط سكرول
-    // justify-between: توزع العناصر (الفورم فوق والفوتر تحت) مع ترك مسافة بينهم
-    <div className="h-screen w-screen overflow-hidden bg-[#faf8f5] text-slate-900 flex flex-col justify-between items-center p-6 dir-rtl font-sans select-none">
-      <div></div>
+    <div className="h-screen w-screen overflow-hidden bg-[#faf8f5] text-slate-900 flex flex-col justify-center items-center gap-3 p-4 dir-rtl font-sans select-none">
 
-      <div className="bg-white p-6 rounded-3xl border border-orange-100 shadow-sm w-full max-w-sm space-y-4 text-right my-auto">
-        <div className="flex flex-col items-center justify-center space-y-1 text-center">
-          <div className="w-12 h-12 relative mb-1">
+      <div className="bg-white p-7 rounded-3xl border border-orange-100 shadow-md w-full max-w-sm space-y-4 text-right">
+        <div className="flex flex-col items-center justify-center space-y-2 text-center">
+          <div className="w-16 h-16 relative mb-1">
             <Image src="/logo.png" alt="TTT Logo" fill className="object-contain" priority />
           </div>
-          <h1 className="text-xl font-black text-slate-900 tracking-wide">استعادة كلمة السر</h1>
-          <p className="text-[10px] font-bold text-orange-600">
+          <h1 className="text-2xl font-black text-slate-900 tracking-wide">استعادة كلمة السر</h1>
+          <p className="text-xs font-bold text-orange-600">
             {step === "request" ? "أدخل إيميلك لاستلام رمز الاستعادة" : "أدخل الرمز وكلمة السر الجديدة"}
           </p>
         </div>
 
         {errorMessage && (
-          <div className="bg-red-50 border border-red-100 text-red-600 text-[11px] p-2.5 rounded-2xl text-center font-bold">
+          <div className="bg-red-50 border border-red-100 text-red-600 text-xs p-3 rounded-2xl text-center font-bold">
             {errorMessage}
           </div>
         )}
 
         {step === "request" ? (
-          <form onSubmit={handleRequestReset} className="space-y-3">
+          <form onSubmit={handleRequestReset} className="space-y-3.5">
             <div className="relative">
               <input
                 type="email"
@@ -132,24 +136,24 @@ export default function ForgotPasswordPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="البريد الإلكتروني"
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs pr-10 focus:outline-none focus:border-orange-500 focus:bg-white text-right"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-sm pr-11 focus:outline-none focus:border-orange-500 focus:bg-white text-right font-bold text-slate-800 placeholder:font-medium placeholder:text-slate-400"
               />
-              <Mail className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5" />
+              <Mail className="w-5 h-5 text-slate-400 absolute right-3.5 top-4" />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-2xl text-xs flex justify-center items-center gap-2 transition shadow-md shadow-orange-500/20 disabled:opacity-50"
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 rounded-2xl text-xs flex justify-center items-center gap-2 transition shadow-md shadow-orange-500/20 disabled:opacity-50"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>إرسال رمز الاستعادة</span>}
             </button>
           </form>
         ) : (
-          <form onSubmit={handleVerifyAndReset} className="space-y-3">
-            {/* 6 خانات OTP */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500">أدخل كود الـ OTP (6 أرقام):</label>
+          <form onSubmit={handleVerifyAndReset} className="space-y-3.5">
+            {/* 6 خانات OTP عريضة وواضحة جداً بتنسيق LTR */}
+            <div className="space-y-1 text-right">
+              <label className="text-xs font-bold text-slate-600">أدخل كود الـ OTP (6 أرقام):</label>
               <div className="flex justify-between gap-1.5 dir-ltr">
                 {otpDigits.map((digit, idx) => (
                   <input
@@ -161,7 +165,7 @@ export default function ForgotPasswordPage() {
                     value={digit}
                     onChange={(e) => handleOtpChange(idx, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    className="w-10 h-12 bg-slate-50 border border-slate-200 rounded-xl text-center text-lg font-black focus:outline-none focus:border-orange-500 focus:bg-white text-slate-900 transition  w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-sm focus:outline-none focus:border-orange-500 focus:bg-white text-right pr-10 dir-ltr text-left"
+                    className="w-10 h-12 bg-white border-2 border-slate-300 rounded-xl text-center text-xl font-black text-slate-900 focus:outline-none focus:border-orange-500 shadow-sm transition"
                   />
                 ))}
               </div>
@@ -173,46 +177,69 @@ export default function ForgotPasswordPage() {
                 type={showPassword ? "text" : "password"}
                 required
                 value={newPassword}
+                onFocus={() => setIsPwdFocused(true)}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="كلمة السر الجديدة"
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs pr-10 pl-10 focus:outline-none focus:border-orange-500 focus:bg-white text-right"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-sm pr-11 pl-11 focus:outline-none focus:border-orange-500 focus:bg-white text-right font-bold text-slate-800 placeholder:font-medium placeholder:text-slate-400"
               />
-              <Lock className="w-4 h-4 text-slate-400 absolute right-3.5 top-3.5" />
+              <Lock className="w-5 h-5 text-slate-400 absolute right-3.5 top-4" />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute left-3.5 top-3.5 text-slate-400 hover:text-slate-600"
+                className="absolute left-3.5 top-4 text-slate-400 hover:text-slate-600"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
 
-            {/* قائمة شروط الأمان */}
-            {newPassword.length > 0 && !isPwdValid && (
-              <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-2xl space-y-1.5 text-[10px] transition-all">
+            {/* قائمة شروط الأمان التفاعلية */}
+            {(isPwdFocused || newPassword.length > 0) && !isPwdValid && (
+              <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-2xl space-y-1.5 text-xs transition-all text-right">
                 <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${pwdRules.length ? "bg-orange-500" : "bg-slate-300"}`}></span>
+                  <span className={`w-2.5 h-2.5 rounded-full ${pwdRules.length ? "bg-orange-500" : "bg-slate-300"}`}></span>
                   <span className={pwdRules.length ? "text-orange-600 font-bold" : "text-slate-500"}>6 أحرف/أرقام على الأقل</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${pwdRules.hasUpper ? "bg-orange-500" : "bg-slate-300"}`}></span>
+                  <span className={`w-2.5 h-2.5 rounded-full ${pwdRules.hasUpper ? "bg-orange-500" : "bg-slate-300"}`}></span>
                   <span className={pwdRules.hasUpper ? "text-orange-600 font-bold" : "text-slate-500"}>حرف كبير (A-Z)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${pwdRules.hasNumber ? "bg-orange-500" : "bg-slate-300"}`}></span>
+                  <span className={`w-2.5 h-2.5 rounded-full ${pwdRules.hasNumber ? "bg-orange-500" : "bg-slate-300"}`}></span>
                   <span className={pwdRules.hasNumber ? "text-orange-600 font-bold" : "text-slate-500"}>رقم (0-9)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full ${pwdRules.hasSpecial ? "bg-orange-500" : "bg-slate-300"}`}></span>
+                  <span className={`w-2.5 h-2.5 rounded-full ${pwdRules.hasSpecial ? "bg-orange-500" : "bg-slate-300"}`}></span>
                   <span className={pwdRules.hasSpecial ? "text-orange-600 font-bold" : "text-slate-500"}>رمز خاص (!@#$)</span>
                 </div>
+              </div>
+            )}
+
+            {/* حقل تأكيد كلمة السر عند استيفاء جميع الشروط */}
+            {isPwdValid && (
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  required
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="تأكيد كلمة السر الجديدة"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-sm pr-11 pl-11 focus:outline-none focus:border-orange-500 focus:bg-white text-right font-bold text-slate-800 placeholder:font-medium placeholder:text-slate-400"
+                />
+                <Lock className="w-5 h-5 text-slate-400 absolute right-3.5 top-4" />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute left-3.5 top-4 text-slate-400 hover:text-slate-600"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-2xl text-xs flex justify-center items-center gap-2 transition shadow-md shadow-orange-500/20 disabled:opacity-50"
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 rounded-2xl text-xs flex justify-center items-center gap-2 transition shadow-md shadow-orange-500/20 disabled:opacity-50"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>تحديث كلمة السر</span>}
             </button>
@@ -221,13 +248,13 @@ export default function ForgotPasswordPage() {
 
         <div className="text-center pt-2 border-t border-slate-100 text-xs">
           <Link href="/login" className="text-orange-600 font-bold hover:underline flex items-center justify-center gap-1">
-            <ArrowRight className="w-3.5 h-3.5" />
+            <ArrowRight className="w-4 h-4" />
             <span>العودة لصفحة تسجيل الدخول</span>
           </Link>
         </div>
       </div>
 
-      <footer className="text-center space-y-1 pb-4">
+      <footer className="text-center">
         <p className="text-[10px] text-slate-500 font-bold">جميع الحقوق محفوظة TTT Platform by Beta 2026 ©</p>
       </footer>
     </div>

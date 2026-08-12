@@ -1,18 +1,21 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Loader2, Mail, Lock, User, Eye, EyeOff, Calendar, Users, CheckCircle2 } from "lucide-react";
+import { Loader2, Mail, Lock, User, Eye, EyeOff, Calendar, Users } from "lucide-react";
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isPwdFocused, setIsPwdFocused] = useState(false);
   const [gender, setGender] = useState<"male" | "female" | "">("");
 
   // تاريخ الميلاد
@@ -33,7 +36,7 @@ export default function SignupPage() {
 
   const router = useRouter();
 
-  // فحص شروط كلمة السر
+  // فحص شروط كلمة السر المعقدة
   const pwdRules = {
     length: password.length >= 6,
     hasUpper: /[A-Z]/.test(password),
@@ -42,7 +45,23 @@ export default function SignupPage() {
   };
   const isPwdValid = pwdRules.length && pwdRules.hasUpper && pwdRules.hasNumber && pwdRules.hasSpecial;
 
-  // التعامل مع إدخال خانات الـ OTP المنفصلة
+  // أسماء الشهور العربية
+  const arabicMonths = [
+    { value: "01", label: "يناير (1)" },
+    { value: "02", label: "فبراير (2)" },
+    { value: "03", label: "مارس (3)" },
+    { value: "04", label: "أبريل (4)" },
+    { value: "05", label: "مايو (5)" },
+    { value: "06", label: "يونيو (6)" },
+    { value: "07", label: "يوليو (7)" },
+    { value: "08", label: "أغسطس (8)" },
+    { value: "09", label: "سبتمبر (9)" },
+    { value: "10", label: "أكتوبر (10)" },
+    { value: "11", label: "نوفمبر (11)" },
+    { value: "12", label: "ديسمبر (12)" },
+  ];
+
+  // التعامل مع إدخال خانات الـ OTP المنفصلة (من اليسار لليمين)
   const handleOtpChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
     const newOtp = [...otpDigits];
@@ -73,12 +92,11 @@ export default function SignupPage() {
     return age;
   };
 
-  // 1️⃣ إرسال بيانات التسجيل
+  // إرسال بيانات التسجيل
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    // فحص السن
     const age = calculateAge();
     if (age < 18) {
       setErrorMessage("عذراً، يجب أن يكون عمرك 18 عاماً أو أكثر للتسجيل في المنصة.");
@@ -92,6 +110,11 @@ export default function SignupPage() {
 
     if (!isPwdValid) {
       setErrorMessage("يرجى استيفاء جميع شروط كلمة السر.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMessage("كلمتا السر غير متطابقتين.");
       return;
     }
 
@@ -123,7 +146,7 @@ export default function SignupPage() {
     }
   };
 
-  // 2️⃣ التأكد من الـ OTP
+  // التأكد من الـ OTP
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -151,40 +174,36 @@ export default function SignupPage() {
     }
   };
 
-  // 3️⃣ الدخول بـ Google
+  // الدخول بـ Google
   const handleGoogleSignup = async () => {
     setGoogleLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${window.location.origin}/` },
     });
-    if (error) setErrorMessage("خطأ في الاتصال بحساب بجوجل");
+    if (error) setErrorMessage("خطأ في الاتصال بحساب جوجل");
   };
 
   return (
-    // h-screen: تجعل طول الـ div يساوي طول الشاشة بالضبط
-    // overflow-hidden: تمنع ظهور أي شريط سكرول
-    // justify-between: توزع العناصر (الفورم فوق والفوتر تحت) مع ترك مسافة بينهم
-    <div className="h-screen w-screen overflow-hidden bg-[#faf8f5] text-slate-900 flex flex-col justify-between items-center p-6 dir-rtl font-sans select-none">
-      <div></div>
+    <div className="h-screen w-screen overflow-hidden bg-[#faf8f5] text-slate-900 flex flex-col justify-center items-center gap-2 p-3 dir-rtl font-sans select-none">
 
-      <div className="bg-white p-5 rounded-3xl border border-orange-100 shadow-sm w-full max-w-sm space-y-3 text-right my-auto overflow-y-auto max-h-[90vh] no-scrollbar">
+      <div className="bg-white p-5 rounded-3xl border border-orange-100 shadow-md w-full max-w-sm space-y-3 text-right max-h-[85vh] overflow-y-auto no-scrollbar">
         
         {/* اللوجو الرسمي بصورة */}
         <div className="flex flex-col items-center justify-center space-y-1 text-center">
-          <div className="w-12 h-12 relative mb-1">
+          <div className="w-12 h-12 relative mb-0.5">
             <Image src="/logo.png" alt="TTT Logo" fill className="object-contain" priority />
           </div>
-          <h1 className="text-lg font-black text-slate-900 tracking-wide">
+          <h1 className="text-xl font-black text-slate-900 tracking-wide">
             {step === "form" ? "إنشاء حساب جديد" : "تأكيد بريدك الإلكتروني"}
           </h1>
-          <p className="text-[10px] font-bold text-orange-600">
+          <p className="text-xs font-bold text-orange-600">
             {step === "form" ? "مرحباً بك في منصة TTT Platform" : "أدخل كود الـ OTP المكون من 6 أرقام"}
           </p>
         </div>
 
         {errorMessage && (
-          <div className="bg-red-50 border border-red-100 text-red-600 text-[10px] p-2 rounded-2xl text-center font-bold">
+          <div className="bg-red-50 border border-red-100 text-red-600 text-xs p-2.5 rounded-2xl text-center font-bold">
             {errorMessage}
           </div>
         )}
@@ -200,9 +219,9 @@ export default function SignupPage() {
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   placeholder="الاسم الأول"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs pr-8 focus:outline-none focus:border-orange-500 focus:bg-white text-right"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs pr-8 focus:outline-none focus:border-orange-500 focus:bg-white text-right font-bold text-slate-800 placeholder:font-medium placeholder:text-slate-400"
                 />
-                <User className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3" />
+                <User className="w-4 h-4 text-slate-400 absolute right-2.5 top-3" />
               </div>
               <div className="relative">
                 <input
@@ -211,9 +230,9 @@ export default function SignupPage() {
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   placeholder="اسم العائلة"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs pr-8 focus:outline-none focus:border-orange-500 focus:bg-white text-right"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs pr-8 focus:outline-none focus:border-orange-500 focus:bg-white text-right font-bold text-slate-800 placeholder:font-medium placeholder:text-slate-400"
                 />
-                <User className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3" />
+                <User className="w-4 h-4 text-slate-400 absolute right-2.5 top-3" />
               </div>
             </div>
 
@@ -225,9 +244,9 @@ export default function SignupPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="البريد الإلكتروني"
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs pr-8 focus:outline-none focus:border-orange-500 focus:bg-white text-right"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs pr-8 focus:outline-none focus:border-orange-500 focus:bg-white text-right font-bold text-slate-800 placeholder:font-medium placeholder:text-slate-400"
               />
-              <Mail className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3" />
+              <Mail className="w-4 h-4 text-slate-400 absolute right-2.5 top-3" />
             </div>
 
             {/* كلمة السر والعين */}
@@ -236,74 +255,108 @@ export default function SignupPage() {
                 type={showPassword ? "text" : "password"}
                 required
                 value={password}
+                onFocus={() => setIsPwdFocused(true)}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="كلمة السر"
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs pr-8 pl-8 focus:outline-none focus:border-orange-500 focus:bg-white text-right"
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs pr-8 pl-8 focus:outline-none focus:border-orange-500 focus:bg-white text-right font-bold text-slate-800 placeholder:font-medium placeholder:text-slate-400"
               />
-              <Lock className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-3" />
+              <Lock className="w-4 h-4 text-slate-400 absolute right-2.5 top-3" />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute left-2.5 top-3 text-slate-400 hover:text-slate-600"
               >
-                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
 
             {/* قائمة شروط كلمة السر التفاعلية */}
-            {password.length > 0 && !isPwdValid && (
-              <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-2xl space-y-1.5 text-[10px] transition-all">
+            {(isPwdFocused || password.length > 0) && !isPwdValid && (
+              <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-2xl space-y-1.5 text-xs transition-all text-right">
                 <p className="font-bold text-slate-700 mb-1">شروط الأمان لكلمة السر:</p>
                 
                 <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full transition-colors ${pwdRules.length ? "bg-orange-500" : "bg-slate-300"}`}></span>
+                  <span className={`w-2.5 h-2.5 rounded-full transition-colors ${pwdRules.length ? "bg-orange-500" : "bg-slate-300"}`}></span>
                   <span className={pwdRules.length ? "text-orange-600 font-bold" : "text-slate-500"}>6 أحرف/أرقام على الأقل</span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full transition-colors ${pwdRules.hasUpper ? "bg-orange-500" : "bg-slate-300"}`}></span>
+                  <span className={`w-2.5 h-2.5 rounded-full transition-colors ${pwdRules.hasUpper ? "bg-orange-500" : "bg-slate-300"}`}></span>
                   <span className={pwdRules.hasUpper ? "text-orange-600 font-bold" : "text-slate-500"}>حرف كبير واحد على الأقل (A-Z)</span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full transition-colors ${pwdRules.hasNumber ? "bg-orange-500" : "bg-slate-300"}`}></span>
+                  <span className={`w-2.5 h-2.5 rounded-full transition-colors ${pwdRules.hasNumber ? "bg-orange-500" : "bg-slate-300"}`}></span>
                   <span className={pwdRules.hasNumber ? "text-orange-600 font-bold" : "text-slate-500"}>رقم واحد على الأقل (0-9)</span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full transition-colors ${pwdRules.hasSpecial ? "bg-orange-500" : "bg-slate-300"}`}></span>
+                  <span className={`w-2.5 h-2.5 rounded-full transition-colors ${pwdRules.hasSpecial ? "bg-orange-500" : "bg-slate-300"}`}></span>
                   <span className={pwdRules.hasSpecial ? "text-orange-600 font-bold" : "text-slate-500"}>رمز خاص مثل (!@#$%^&*)</span>
                 </div>
               </div>
             )}
 
-            {/* تاريخ الميلاد */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
-                <Calendar className="w-3 h-3 text-orange-500" />
-                <span>تاريخ الميلاد (يجب أن تكون 18 عاماً أو أكثر)</span>
+            {/* ظهور حقل تأكيد كلمة السر فور تحقيق جميع الشروط */}
+            {isPwdValid && (
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="تأكيد كلمة السر"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs pr-8 pl-8 focus:outline-none focus:border-orange-500 focus:bg-white text-right font-bold text-slate-800 placeholder:font-medium placeholder:text-slate-400"
+                />
+                <Lock className="w-4 h-4 text-slate-400 absolute right-2.5 top-3" />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute left-2.5 top-3 text-slate-400 hover:text-slate-600"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            )}
+
+            {/* تاريخ الميلاد: قوائم اختيار لليوم والشهر، وحقل كتابة للسنة */}
+            <div className="space-y-1 text-right">
+              <label className="text-xs font-bold text-slate-600 flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5 text-orange-500" />
+                <span>تاريخ الميلاد (يجب ألا يقل عن 18 عاماً)</span>
               </label>
               <div className="grid grid-cols-3 gap-1.5">
-                <input
-                  type="number"
+                {/* قائمة الأيام من 1 إلى 31 */}
+                <select
                   required
-                  min={1}
-                  max={31}
-                  placeholder="اليوم"
                   value={day}
                   onChange={(e) => setDay(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs text-center focus:border-orange-500"
-                />
-                <input
-                  type="number"
+                  className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs text-center font-bold focus:border-orange-500 text-slate-800"
+                >
+                  <option value="">اليوم</option>
+                  {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+
+                {/* قائمة الشهور العربية */}
+                <select
                   required
-                  min={1}
-                  max={12}
-                  placeholder="الشهر"
                   value={month}
                   onChange={(e) => setMonth(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs text-center focus:border-orange-500"
-                />
+                  className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs text-center font-bold focus:border-orange-500 text-slate-800"
+                >
+                  <option value="">الشهر</option>
+                  {arabicMonths.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+
+                {/* حقل إدخال السنة */}
                 <input
                   type="number"
                   required
@@ -312,15 +365,15 @@ export default function SignupPage() {
                   placeholder="السنة"
                   value={year}
                   onChange={(e) => setYear(e.target.value)}
-                  className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs text-center focus:border-orange-500"
+                  className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-xs text-center font-bold focus:border-orange-500 text-slate-800"
                 />
               </div>
             </div>
 
             {/* تحديد النوع */}
-            <div className="space-y-1 pt-0.5">
-              <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
-                <Users className="w-3 h-3 text-orange-500" />
+            <div className="space-y-1 pt-0.5 text-right">
+              <label className="text-xs font-bold text-slate-600 flex items-center gap-1">
+                <Users className="w-3.5 h-3.5 text-orange-500" />
                 <span>النوع</span>
               </label>
               <div className="grid grid-cols-2 gap-2 text-xs">
@@ -344,20 +397,19 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 rounded-2xl text-xs flex justify-center items-center gap-2 transition shadow-md shadow-orange-500/20 disabled:opacity-50 mt-2"
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-2xl text-xs flex justify-center items-center gap-2 transition shadow-md shadow-orange-500/20 disabled:opacity-50 mt-1"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>إنشاء الحساب واستلام الرمز</span>}
             </button>
           </form>
         ) : (
-          /* خانات كود التحقق الـ OTP المنفصلة */
+          /* خانات كود التحقق الـ OTP المنفصلة بألوان وتنسيق شديد الوضوح وخط عريض عالي التباين LTR */
           <form onSubmit={handleVerifyOtp} className="space-y-4 py-2">
-            <p className="text-[11px] text-center text-slate-500">
+            <p className="text-xs text-center text-slate-600 leading-relaxed">
               تم إرسال رمز التحقق إلى بريدك الإلكتروني: <br />
-              <span className="font-bold text-slate-800 dir-ltr inline-block mt-0.5">{email}</span>
+              <span className="font-bold text-slate-900 dir-ltr inline-block mt-0.5">{email}</span>
             </p>
 
-            {/* 6 خانات منفصلة */}
             <div className="flex justify-between gap-1.5 dir-ltr">
               {otpDigits.map((digit, idx) => (
                 <input
@@ -369,8 +421,7 @@ export default function SignupPage() {
                   value={digit}
                   onChange={(e) => handleOtpChange(idx, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                  className="w-10 h-12 bg-slate-50 border border-slate-200 rounded-xl text-center text-lg font-black focus:outline-none focus:border-orange-500 focus:bg-white text-slate-900 transition
-                  w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-sm focus:outline-none focus:border-orange-500 focus:bg-white text-right pr-10 dir-ltr text-left"
+                  className="w-10 h-12 bg-white border-2 border-slate-300 rounded-xl text-center text-xl font-black text-slate-900 focus:outline-none focus:border-orange-500 shadow-sm transition"
                 />
               ))}
             </div>
@@ -378,7 +429,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-2xl text-xs flex justify-center items-center gap-2 transition shadow-md shadow-orange-500/20 disabled:opacity-50"
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 rounded-2xl text-xs flex justify-center items-center gap-2 transition shadow-md shadow-orange-500/20 disabled:opacity-50"
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>تأكيد الرمز والدخول</span>}
             </button>
@@ -386,7 +437,7 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={() => setStep("form")}
-              className="w-full text-[11px] text-slate-400 hover:underline text-center block"
+              className="w-full text-xs text-slate-500 hover:underline text-center block font-bold"
             >
               تعديل البيانات أو الإيميل
             </button>
@@ -397,7 +448,7 @@ export default function SignupPage() {
           <>
             <div className="relative flex py-0.5 items-center">
               <div className="flex-grow border-t border-slate-100"></div>
-              <span className="flex-shrink mx-2 text-[10px] text-slate-400 font-bold">أو</span>
+              <span className="flex-shrink mx-2 text-xs text-slate-400 font-bold">أو</span>
               <div className="flex-grow border-t border-slate-100"></div>
             </div>
 
@@ -405,7 +456,7 @@ export default function SignupPage() {
               type="button"
               onClick={handleGoogleSignup}
               disabled={googleLoading}
-              className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold py-2 rounded-2xl text-xs flex justify-center items-center gap-2 transition"
+              className="w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold py-2.5 rounded-2xl text-xs flex justify-center items-center gap-2 transition"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -426,7 +477,7 @@ export default function SignupPage() {
         </div>
       </div>
 
-      <footer className="text-center space-y-0 pb-2">
+      <footer className="text-center">
         <p className="text-[10px] text-slate-500 font-bold">جميع الحقوق محفوظة TTT Platform by Beta 2026 ©</p>
       </footer>
     </div>
