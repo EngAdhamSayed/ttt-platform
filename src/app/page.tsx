@@ -40,6 +40,9 @@ import {
   Globe,
   Lock,
   Loader2,
+  Volume2,
+  Check,
+  Trash2,
 } from "lucide-react";
 
 interface CommentReply {
@@ -82,6 +85,7 @@ interface Story {
   authorAvatar: string;
   type: "text" | "image" | "video";
   content: string;
+  mediaUrl?: string;
   bgColor?: string;
   createdAt: string;
 }
@@ -89,6 +93,7 @@ interface Story {
 export default function HomePage() {
   const router = useRouter();
 
+  // 1️⃣ حالات القوائم والبحث
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -97,6 +102,7 @@ export default function HomePage() {
   const [openFavorites, setOpenFavorites] = useState(false);
   const [openGames, setOpenGames] = useState(false);
 
+  // 2️⃣ بيانات المستخدم الحالي
   const [userData, setUserData] = useState({
     id: "",
     fullName: "جاري التحميل...",
@@ -105,6 +111,7 @@ export default function HomePage() {
     avatarChar: "U",
   });
 
+  // 3️⃣ حالات المنشورات
   const [posts, setPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [postText, setPostText] = useState("");
@@ -112,27 +119,53 @@ export default function HomePage() {
   const [selectedMedia, setSelectedMedia] = useState<{ url: string; type: "image" | "video" } | null>(null);
   const [isSubmittingPost, setIsSubmittingPost] = useState(false);
 
+  // 4️⃣ حالات القصص (Stories)
   const [stories, setStories] = useState<Story[]>([]);
   const [activeStory, setActiveStory] = useState<Story | null>(null);
+  const [storyProgress, setStoryProgress] = useState(0);
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
   const [newStoryType, setNewStoryType] = useState<"text" | "image" | "video">("text");
   const [newStoryContent, setNewStoryContent] = useState("");
+  const [newStoryBgColor, setNewStoryBgColor] = useState("from-orange-500 to-amber-500");
 
+  // 5️⃣ التفاعلات والتعليقات الصوتية والنصية
   const [activeReactionPostId, setActiveReactionPostId] = useState<string | null>(null);
   const [expandedCommentsPostId, setExpandedCommentsPostId] = useState<string | null>(null);
   const [commentInputText, setCommentInputText] = useState<{ [postId: string]: string }>({});
   const [replyInputText, setReplyInputText] = useState<{ [commentId: string]: string }>({});
   const [activeReplyCommentId, setActiveReplyCommentId] = useState<string | null>(null);
 
+  // تسجيل الصوت
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingTimer, setRecordingTimer] = useState(0);
   const [recordingPostId, setRecordingPostId] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // 🔄 جلب البيانات والتجهيز عند الفتح
   useEffect(() => {
     fetchUserData();
     fetchPostsFromSupabase();
   }, []);
+
+  // ⏱️ مؤشر تقدم عرض القصة (Story Progress Timer)
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (activeStory) {
+      setStoryProgress(0);
+      interval = setInterval(() => {
+        setStoryProgress((prev) => {
+          if (prev >= 100) {
+            setActiveStory(null);
+            return 0;
+          }
+          return prev + 2;
+        });
+      }, 100);
+    }
+    return () => clearInterval(interval);
+  }, [activeStory]);
 
   const fetchUserData = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -172,6 +205,7 @@ export default function HomePage() {
     setLoadingPosts(false);
   };
 
+  // 📝 نشر منشور جديد
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!postText.trim() && !selectedMedia) return;
@@ -192,8 +226,6 @@ export default function HomePage() {
 
     if (!error && data) {
       setPosts([{ ...data[0], reactionsCount: 0, comments: [], sharesCount: 0 }, ...posts]);
-      setPostText("");
-      setSelectedMedia(null);
     } else {
       const localPost: Post = {
         id: Date.now().toString(),
@@ -210,13 +242,14 @@ export default function HomePage() {
         sharesCount: 0,
       };
       setPosts([localPost, ...posts]);
-      setPostText("");
-      setSelectedMedia(null);
     }
 
+    setPostText("");
+    setSelectedMedia(null);
     setIsSubmittingPost(false);
   };
 
+  // 🎙️ تسجيل التعليق الصوتي
   const startRecording = async (postId: string) => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -254,8 +287,13 @@ export default function HomePage() {
       mediaRecorderRef.current.start();
       setIsRecording(true);
       setRecordingPostId(postId);
+      setRecordingTimer(0);
+
+      timerIntervalRef.current = setInterval(() => {
+        setRecordingTimer((prev) => prev + 1);
+      }, 1000);
     } catch {
-      alert("يرجى إعطاء صلاحية الميكروفون للبدء التسجيل الصوتي.");
+      alert("يرجى إعطاء صلاحية استخدام الميكروفون لتسجيل التعليق الصوتي.");
     }
   };
 
@@ -264,9 +302,11 @@ export default function HomePage() {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       setRecordingPostId(null);
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     }
   };
 
+  // 📖 نشر قصة جديدة
   const handleCreateStory = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStoryContent.trim()) return;
@@ -277,7 +317,7 @@ export default function HomePage() {
       authorAvatar: userData.avatarChar,
       type: newStoryType,
       content: newStoryContent,
-      bgColor: newStoryType === "text" ? "bg-gradient-to-tr from-orange-500 to-amber-500" : undefined,
+      bgColor: newStoryType === "text" ? `bg-gradient-to-tr ${newStoryBgColor}` : undefined,
       createdAt: "الآن",
     };
 
@@ -286,6 +326,7 @@ export default function HomePage() {
     setIsCreateStoryOpen(false);
   };
 
+  // 👍 التفاعلات
   const handleReact = (postId: string, reactionEmoji: string) => {
     setPosts((prevPosts) =>
       prevPosts.map((p) => {
@@ -305,6 +346,7 @@ export default function HomePage() {
     setActiveReactionPostId(null);
   };
 
+  // 💬 التعليقات والردود
   const handleAddComment = (postId: string) => {
     const text = commentInputText[postId];
     if (!text || !text.trim()) return;
@@ -359,12 +401,21 @@ export default function HomePage() {
     setActiveReplyCommentId(null);
   };
 
+  // 🔄 المشاركة
   const handleShare = (postId: string) => {
     setPosts((prevPosts) =>
       prevPosts.map((p) => (p.id === postId ? { ...p, sharesCount: (p.sharesCount || 0) + 1 } : p))
     );
     navigator.clipboard.writeText(`${window.location.origin}/post/${postId}`);
-    alert("تم نسخ رابط المنشور بنجاح!");
+    alert("تم نسخ رابط المنشور لسبورة اللصق بنجاح!");
+  };
+
+  // 🗑️ حذف المنشور
+  const handleDeletePost = async (postId: string) => {
+    if (confirm("هل أنت تأكد من رغبتك في حذف هذا المنشور؟")) {
+      setPosts(posts.filter((p) => p.id !== postId));
+      await supabase.from("posts").delete().eq("id", postId);
+    }
   };
 
   const handleLogout = async () => {
@@ -373,15 +424,22 @@ export default function HomePage() {
     router.refresh();
   };
 
+  // تصفية المنشورات أثناء البحث
+  const filteredPosts = posts.filter(
+    (p) =>
+      p.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.author_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-[#faf8f5] text-slate-900 dir-rtl font-sans select-none pb-20">
       
-      {/* 🟢 1. الهيدر العلوي */}
-      <header className="sticky top-0 z-30 bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between shadow-sm">
+      {/* 🟢 1. الهيدر العلوي الأصلي مع أزرار الإشعارات والبحث والسايد بار */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-100 px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2">
           <button
             onClick={() => router.push("/messages")}
-            className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition relative"
+            className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600 transition relative"
           >
             <MessageSquare className="w-5 h-5" />
             <span className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full border-2 border-white"></span>
@@ -389,7 +447,7 @@ export default function HomePage() {
 
           <button
             onClick={() => setIsSearchOpen(true)}
-            className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition"
+            className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600 transition"
           >
             <Search className="w-5 h-5" />
           </button>
@@ -400,16 +458,16 @@ export default function HomePage() {
           
           <button
             onClick={() => setIsSidebarOpen(true)}
-            className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-100 transition"
+            className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-600 transition"
           >
             <Menu className="w-5 h-5" />
           </button>
         </div>
       </header>
 
-      {/* 🟢 2. شاشة البحث */}
+      {/* 🟢 2. شاشة البحث الفورية */}
       {isSearchOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-start justify-center pt-16 p-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-start justify-center pt-16 p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl p-4 w-full max-w-md space-y-3 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <input
@@ -417,15 +475,15 @@ export default function HomePage() {
                 autoFocus
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="ابحث عن أصدقاء، منشورات، مجموعات..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs focus:outline-none focus:border-orange-500 font-bold"
+                placeholder="ابحث عن أصدقاء، منشورات، كلمات..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs font-bold focus:outline-none focus:border-orange-500"
               />
               <button onClick={() => setIsSearchOpen(false)} className="p-2 text-slate-400 hover:text-slate-600 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="text-center py-6 text-xs text-slate-400 font-bold">
-              {searchQuery ? `نتائج البحث عن: "${searchQuery}"` : "اكتب كلمة البحث للبدء..."}
+            <div className="text-center py-4 text-xs text-slate-500 font-bold">
+              {searchQuery ? `تم العثور على (${filteredPosts.length}) نتائج` : "اكتب كلمة البحث للبدء..."}
             </div>
           </div>
         </div>
@@ -436,16 +494,19 @@ export default function HomePage() {
 
         {/* 📖 شريط القصص (Stories Bar) */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+          
+          {/* زر إضافة قصة */}
           <button
             onClick={() => setIsCreateStoryOpen(true)}
-            className="flex-shrink-0 w-24 h-36 bg-white border-2 border-dashed border-orange-300 rounded-3xl p-2 flex flex-col items-center justify-between text-center hover:bg-orange-50/50 transition shadow-sm"
+            className="flex-shrink-0 w-24 h-36 bg-white border-2 border-dashed border-orange-300 rounded-3xl p-2 flex flex-col items-center justify-between text-center hover:bg-orange-50/50 transition shadow-sm group"
           >
-            <div className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center font-black text-lg mt-2 shadow-md shadow-orange-500/20">
+            <div className="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center font-black text-lg mt-2 shadow-md shadow-orange-500/20 group-hover:scale-110 transition">
               <Plus className="w-6 h-6" />
             </div>
             <span className="text-[11px] font-black text-slate-800 pb-1">قصة جديدة</span>
           </button>
 
+          {/* قائمة القصص المضافة */}
           {stories.map((story) => (
             <div
               key={story.id}
@@ -463,13 +524,14 @@ export default function HomePage() {
               <span className="text-[9px] font-bold text-orange-200 text-right">{story.authorName}</span>
             </div>
           ))}
+
         </div>
 
         {/* ✏️ صندوق إنشاء منشور جديد */}
         <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-sm border-2 border-orange-500">
+              <div className="w-10 h-10 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-sm border-2 border-orange-500 shadow-sm">
                 {userData.avatarChar}
               </div>
               <div>
@@ -481,7 +543,7 @@ export default function HomePage() {
             <select
               value={postPrivacy}
               onChange={(e) => setPostPrivacy(e.target.value as "public" | "friends")}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-1 text-[10px] font-bold text-slate-700 focus:outline-none focus:border-orange-500"
+              className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-[10px] font-bold text-slate-700 focus:outline-none focus:border-orange-500"
             >
               <option value="public">🌐 عام</option>
               <option value="friends">👥 الأصدقاء فقط</option>
@@ -496,6 +558,7 @@ export default function HomePage() {
             className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-3 text-xs focus:outline-none focus:border-orange-500 focus:bg-white transition resize-none font-medium text-slate-800 placeholder:text-slate-400"
           />
 
+          {/* معاينة الوسائط */}
           {selectedMedia && (
             <div className="relative rounded-2xl overflow-hidden border border-slate-200 max-h-48">
               {selectedMedia.type === "image" ? (
@@ -505,7 +568,7 @@ export default function HomePage() {
               )}
               <button
                 onClick={() => setSelectedMedia(null)}
-                className="absolute top-2 left-2 bg-slate-900/70 text-white p-1 rounded-full hover:bg-slate-900"
+                className="absolute top-2 left-2 bg-slate-900/70 text-white p-1.5 rounded-full hover:bg-slate-900 transition"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -549,18 +612,18 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 📰 عرض المنشورات المحفوظة دائمة البقاء */}
+        {/* 📰 قائمة المنشورات المحفوظة */}
         {loadingPosts ? (
           <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm text-center flex justify-center items-center gap-2">
             <Loader2 className="w-5 h-5 animate-spin text-orange-500" />
             <span className="text-xs font-bold text-slate-500">جاري تحميل المنشورات...</span>
           </div>
-        ) : posts.length === 0 ? (
+        ) : filteredPosts.length === 0 ? (
           <div className="bg-white p-8 rounded-3xl border border-slate-100 shadow-sm text-center">
             <p className="text-xs font-bold text-slate-400">لا توجد منشورات حتى الآن، كن أول من ينشر!</p>
           </div>
         ) : (
-          posts.map((post) => (
+          filteredPosts.map((post) => (
             <div key={post.id} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 space-y-3">
               
               <div className="flex items-center justify-between">
@@ -578,9 +641,16 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                <button className="text-slate-400 hover:text-slate-600">
-                  <MoreHorizontal className="w-5 h-5" />
-                </button>
+                {/* خيارات المنشور الحقيقية */}
+                {post.user_id === userData.id && (
+                  <button
+                    onClick={() => handleDeletePost(post.id)}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-50 transition"
+                    title="حذف المنشور"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
               <p className="text-xs text-slate-800 leading-relaxed font-medium text-right">{post.content}</p>
@@ -604,6 +674,7 @@ export default function HomePage() {
                 </div>
               </div>
 
+              {/* أزرار التفاعل وقائمة الـ Reactions */}
               <div className="relative flex items-center justify-around text-xs font-bold text-slate-600 pt-1">
                 <div className="relative">
                   <button
@@ -645,6 +716,7 @@ export default function HomePage() {
                 </button>
               </div>
 
+              {/* قسم التعليقات والردود والمسجل الصوتي */}
               {expandedCommentsPostId === post.id && (
                 <div className="pt-3 border-t border-slate-100 space-y-3">
                   <div className="flex items-center gap-2">
@@ -656,15 +728,23 @@ export default function HomePage() {
                       className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-bold focus:outline-none focus:border-orange-500"
                     />
 
+                    {/* زر التسجيل الصوتي مع العداد */}
                     <button
                       onClick={() => (isRecording && recordingPostId === post.id ? stopRecording() : startRecording(post.id))}
-                      className={`p-2.5 rounded-2xl transition border ${
+                      className={`p-2.5 rounded-2xl transition border flex items-center gap-1 ${
                         isRecording && recordingPostId === post.id
                           ? "bg-red-500 text-white border-red-500 animate-pulse"
                           : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-orange-50"
                       }`}
                     >
-                      {isRecording && recordingPostId === post.id ? <Square className="w-4 h-4" /> : <Mic className="w-4 h-4 text-orange-500" />}
+                      {isRecording && recordingPostId === post.id ? (
+                        <>
+                          <Square className="w-4 h-4" />
+                          <span className="text-[10px] font-bold">{recordingTimer}s</span>
+                        </>
+                      ) : (
+                        <Mic className="w-4 h-4 text-orange-500" />
+                      )}
                     </button>
 
                     <button onClick={() => handleAddComment(post.id)} className="bg-orange-500 text-white p-2.5 rounded-2xl hover:bg-orange-600 transition">
@@ -695,7 +775,7 @@ export default function HomePage() {
                         <div className="pr-9 flex gap-3 text-[10px] font-bold text-slate-400">
                           <button
                             onClick={() => setActiveReplyCommentId(activeReplyCommentId === comment.id ? null : comment.id)}
-                            className="hover:text-orange-600"
+                            className="hover:text-orange-600 font-bold"
                           >
                             رد
                           </button>
@@ -743,11 +823,17 @@ export default function HomePage() {
 
       </main>
 
-      {/* 📖 4. شاشة عرض القصة */}
+      {/* 📖 4. مشغّل القصة مع الـ Progress Bar */}
       {activeStory && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in zoom-in duration-150">
           <div className="relative w-full max-w-sm h-[75vh] rounded-3xl bg-slate-900 text-white p-6 flex flex-col justify-between shadow-2xl overflow-hidden border border-slate-800">
-            <button onClick={() => setActiveStory(null)} className="absolute top-4 left-4 bg-white/20 p-2 rounded-full hover:bg-white/40 transition z-10">
+            
+            {/* شريط التقدم */}
+            <div className="w-full bg-white/20 h-1 rounded-full overflow-hidden mb-2">
+              <div className="bg-orange-500 h-full transition-all ease-linear" style={{ width: `${storyProgress}%` }}></div>
+            </div>
+
+            <button onClick={() => setActiveStory(null)} className="absolute top-6 left-6 bg-white/20 p-2 rounded-full hover:bg-white/40 transition z-10">
               <X className="w-5 h-5 text-white" />
             </button>
 
@@ -770,9 +856,9 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ➕ 5. شاشة إنشاء قصة */}
+      {/* ➕ 5. شاشة إنشاء قصة مع اختيار ألوان الخلفية */}
       {isCreateStoryOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
           <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-4 shadow-2xl text-right">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <h3 className="font-black text-sm text-slate-900">إنشاء قصة جديدة</h3>
@@ -814,6 +900,26 @@ export default function HomePage() {
               </button>
             </div>
 
+            {/* اختيار التدرج الملون للنص */}
+            {newStoryType === "text" && (
+              <div className="flex justify-around py-1">
+                {[
+                  "from-orange-500 to-amber-500",
+                  "from-purple-600 to-pink-500",
+                  "from-blue-600 to-cyan-500",
+                  "from-emerald-500 to-teal-700",
+                ].map((color) => (
+                  <button
+                    key={color}
+                    onClick={() => setNewStoryBgColor(color)}
+                    className={`w-7 h-7 rounded-full bg-gradient-to-tr ${color} border-2 ${
+                      newStoryBgColor === color ? "border-slate-900 scale-110" : "border-transparent"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+
             <textarea
               rows={4}
               value={newStoryContent}
@@ -838,7 +944,7 @@ export default function HomePage() {
         <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 transition-opacity" />
       )}
 
-      {/* 🔴 7. القائمة الجانبية (Sidebar) */}
+      {/* 🔴 7. القائمة الجانبية المفتوحة في الاتجاه الأيمن المظبوط */}
       <aside
         className={`fixed top-0 right-0 h-full w-[85%] max-w-xs bg-white z-50 shadow-2xl flex flex-col justify-between transition-transform duration-300 ease-in-out ${
           isSidebarOpen ? "translate-x-0" : "translate-x-full"
