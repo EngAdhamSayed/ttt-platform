@@ -18,13 +18,11 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // خانات OTP منفصلة
   const [otpDigits, setOtpDigits] = useState<string[]>(Array(6).fill(""));
   const otpInputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   const router = useRouter();
 
-  // فحص شروط كلمة السر المعقدة
   const pwdRules = {
     length: newPassword.length >= 6,
     hasUpper: /[A-Z]/.test(newPassword),
@@ -151,10 +149,11 @@ export default function ForgotPasswordPage() {
           </form>
         ) : (
           <form onSubmit={handleVerifyAndReset} className="space-y-3.5">
-            {/* 6 خانات OTP عريضة وواضحة جداً بتنسيق LTR */}
             <div className="space-y-1 text-right">
               <label className="text-xs font-bold text-slate-600">أدخل كود الـ OTP (6 أرقام):</label>
-              <div className="flex justify-between gap-1.5 dir-ltr">
+              
+              {/* تم حسم الاتجاه هنا بـ dir="ltr" صريح لمنع انعكاس الـ Flexbox */}
+              <div dir="ltr" className="flex flex-row justify-between gap-1.5 [direction:ltr]">
                 {otpDigits.map((digit, idx) => (
                   <input
                     key={idx}
@@ -171,7 +170,6 @@ export default function ForgotPasswordPage() {
               </div>
             </div>
 
-            {/* كلمة السر الجديدة والعين */}
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
@@ -192,7 +190,6 @@ export default function ForgotPasswordPage() {
               </button>
             </div>
 
-            {/* قائمة شروط الأمان التفاعلية */}
             {(isPwdFocused || newPassword.length > 0) && !isPwdValid && (
               <div className="bg-slate-50 border border-slate-200 p-2.5 rounded-2xl space-y-1.5 text-xs transition-all text-right">
                 <div className="flex items-center gap-2">
@@ -214,7 +211,6 @@ export default function ForgotPasswordPage() {
               </div>
             )}
 
-            {/* حقل تأكيد كلمة السر عند استيفاء جميع الشروط */}
             {isPwdValid && (
               <div className="relative">
                 <input
