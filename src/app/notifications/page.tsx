@@ -28,35 +28,44 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // نغمة رنين ناعمة وعالية الجودة
+  // 🔔 تشغيل صوت نغمة إشعار نقي (Web Audio API Synthesizer)
   const playNotificationSound = () => {
     try {
-      const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      const AudioContextClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const audioCtx = new AudioContextClass();
+
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
 
       osc.type = "sine";
-      osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
-      osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15); // A5
+      osc.frequency.setValueAtTime(659.25, audioCtx.currentTime); // E5
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1); // A5
 
-      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+      gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
 
       osc.connect(gain);
       gain.connect(audioCtx.destination);
 
       osc.start();
       osc.stop(audioCtx.currentTime + 0.35);
-    } catch {
-      // AudioContext Fallback
+    } catch (e) {
+      console.error("Audio playback error:", e);
     }
   };
 
   useEffect(() => {
     fetchNotifications();
 
+    // الاستماع الفوري لأي إشعار جديد في الوقت الفعلي وتشغيل الصوت
     const channel = supabase
-      .channel("realtime-notifications")
+      .channel("notifications-live")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications" },
@@ -111,8 +120,9 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#faf8f5] text-slate-900 dir-rtl font-sans select-none pb-20">
-      <header className="sticky top-0 z-30 bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between shadow-sm">
+    <div className="min-h-screen bg-[#faf8f5] text-slate-900 dir-rtl font-sans select-none pb-24">
+      {/* الهيدر العلوي */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-100 px-4 py-3 flex items-center justify-between shadow-sm">
         <h1 className="text-lg font-black text-slate-900">الإشعارات</h1>
 
         {notifications.some((n) => !n.is_read) && (
@@ -126,6 +136,7 @@ export default function NotificationsPage() {
         )}
       </header>
 
+      {/* قائمة الإشعارات */}
       <main className="p-4 max-w-lg mx-auto space-y-2.5">
         {loading ? (
           <div className="bg-white p-8 rounded-3xl border border-slate-100 text-center flex justify-center items-center gap-2">
@@ -142,12 +153,12 @@ export default function NotificationsPage() {
             <div
               key={item.id}
               className={`p-3.5 rounded-2xl border transition flex items-center justify-between ${
-                item.is_read ? "bg-white border-slate-100" : "bg-orange-50/60 border-orange-200 shadow-sm"
+                item.is_read ? "bg-white border-slate-100" : "bg-orange-50/70 border-orange-200 shadow-sm"
               }`}
             >
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-sm border-2 border-orange-500">
+                  <div className="w-10 h-10 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-sm border-2 border-orange-500 shadow-sm">
                     {item.actor?.full_name?.charAt(0).toUpperCase() || "U"}
                   </div>
                   <div className="absolute -bottom-1 -left-1 p-0.5 rounded-full bg-white shadow-sm">
@@ -174,7 +185,7 @@ export default function NotificationsPage() {
                 {item.type === "friend_request" && (
                   <Link
                     href="/friends"
-                    className="bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-black px-2.5 py-1.5 rounded-xl transition"
+                    className="bg-orange-500 hover:bg-orange-600 text-white text-[10px] font-black px-2.5 py-1.5 rounded-xl transition shadow-sm shadow-orange-500/20"
                   >
                     عرض الطلب
                   </Link>
