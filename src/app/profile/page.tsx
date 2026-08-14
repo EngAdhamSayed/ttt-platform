@@ -97,7 +97,7 @@ export default function ProfilePage() {
   const [selectedMediaType, setSelectedMediaType] = useState<"image" | "video">("image");
   const [isPosting, setIsPosting] = useState(false);
 
-  // المراجع لرفع الملفات
+  // مراجع رفع الصور
   const avatarFileRef = useRef<HTMLInputElement>(null);
   const coverFileRef = useRef<HTMLInputElement>(null);
   const storyFileRef = useRef<HTMLInputElement>(null);
@@ -118,7 +118,7 @@ export default function ProfilePage() {
 
     const uid = session.user.id;
 
-    // 1. جلب بيانات البروفايل الحقيقية من Supabase
+    // 1. جلب بيانات البروفايل الحقيقية فقط من Supabase
     const { data: prof } = await supabase.from("profiles").select("*").eq("id", uid).single();
     if (prof) {
       setProfile(prof);
@@ -131,16 +131,20 @@ export default function ProfilePage() {
       setEditHobbies(prof.hobbies && prof.hobbies.length > 0 ? prof.hobbies.join(" • ") : "");
     }
 
-    // 2. جلب منشورات المستخدم الحقيقية مرتبة من الأحدث للأقدم
+    // 2. جلب منشورات المستخدم الحقيقية فقط
     const { data: myPosts } = await supabase
       .from("posts")
       .select("*")
       .eq("user_id", uid)
       .order("created_at", { ascending: false });
 
-    if (myPosts) setPosts(myPosts);
+    if (myPosts) {
+      setPosts(myPosts);
+    } else {
+      setPosts([]);
+    }
 
-    // 3. جلب الأصدقاء الفعليين المقبولين من جدول العلاقات
+    // 3. جلب الأصدقاء الحقيقيين المقبولين فقط
     const { data: relations } = await supabase
       .from("friendships")
       .select("sender_id, receiver_id, status")
@@ -165,7 +169,7 @@ export default function ProfilePage() {
     setLoading(false);
   };
 
-  // دالة تحجيم وضغط الصور لضمان الحفظ الدائم بدون تخطي السعة
+  // دالة تحجيم وضغط الصور لضمان الحفظ المضمون في DB
   const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -198,7 +202,7 @@ export default function ProfilePage() {
     });
   };
 
-  // 📷 رفع وحفظ الصورة الشخصية الحقيقية في Supabase
+  // 📷 رفع وحفظ الصورة الشخصية في قاعدة البيانات
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
@@ -238,7 +242,7 @@ export default function ProfilePage() {
     }
   };
 
-  // 🌄 رفع وحفظ صورة الغلاف الحقيقية في Supabase
+  // 🌄 رفع وحفظ الغلاف في قاعدة البيانات
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
@@ -276,7 +280,7 @@ export default function ProfilePage() {
     }
   };
 
-  // 📝 نشر منشور جديد وحفظه في جدول posts
+  // 📝 نشر منشور جديد في جدول posts
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile || (!postText.trim() && !selectedMedia)) return;
@@ -336,14 +340,14 @@ export default function ProfilePage() {
     }
   };
 
-  // تجميع جميع الصور الفعلية المرفوعة
+  // استخراج الصور الحقيقية فقط
   const allUserPhotos = [
     ...(profile?.avatar_url && profile.avatar_type !== "video" ? [profile.avatar_url] : []),
     ...(profile?.cover_url ? [profile.cover_url] : []),
     ...posts.flatMap((p) => (p.media_urls && p.media_type !== "video" ? p.media_urls : [])),
   ];
 
-  // تجميع جميع مقاطع الريلز / الفيديوهات الفعلية
+  // استخراج الفيديوهات الحقيقية فقط
   const allUserReels = posts.filter(
     (p) => p.media_type === "video" || p.media_urls?.some((url) => url.startsWith("data:video") || url.endsWith(".mp4"))
   );
@@ -411,7 +415,7 @@ export default function ProfilePage() {
               type="button"
               onClick={() => avatarFileRef.current?.click()}
               className="absolute bottom-0 left-0 z-20 bg-slate-100 hover:bg-slate-200 border-2 border-white p-1.5 rounded-full shadow text-slate-800 transition cursor-pointer"
-              title="تغيير الصورة أو فيديو متحرك 5ث"
+              title="تغيير الصورة الشخصية"
             >
               <Camera className="w-3.5 h-3.5" />
             </button>
@@ -440,7 +444,7 @@ export default function ProfilePage() {
         {/* الرتبة والمسافة الفاصلة + البايو + أزرار الإجراءات */}
         <div className="max-w-lg mx-auto px-4 mt-3 space-y-3">
           
-          {/* شارة الرتبة والإحصائيات بالعربي مع مسافة فاصلة */}
+          {/* شارة الرتبة والإحصائيات الحقيقية مع مسافة فاصلة */}
           <div className="flex items-center justify-between pt-1">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-orange-50 border border-orange-200 text-xs font-black shadow-sm">
               <Sparkles className="w-3.5 h-3.5 text-orange-500" />
@@ -455,14 +459,14 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* البايو */}
+          {/* البايو الحقيقي (إذا وجد) */}
           {profile?.bio && (
             <p className="text-xs font-semibold text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50 p-2.5 rounded-2xl border border-slate-100">
               {profile.bio}
             </p>
           )}
 
-          {/* الحالة الاجتماعية */}
+          {/* الحالة الاجتماعية الحقيقية (إذا حددها) */}
           {profile?.relationship_status && (
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
               <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
@@ -575,16 +579,12 @@ export default function ProfilePage() {
                   <span>يقيم في <strong className="text-slate-900">{profile?.location || "غير محدد"}</strong></span>
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <HomeIcon className="w-4 h-4 text-orange-500" />
-                  <span>من <strong className="text-slate-900">{profile?.location || "غير محدد"}</strong></span>
-                </div>
-                <div className="flex items-center gap-2.5">
                   <Calendar className="w-4 h-4 text-orange-500" />
                   <span>تاريخ الميلاد: <strong className="text-slate-900">{profile?.birth_date || "غير محدد"}</strong></span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <Heart className="w-4 h-4 text-rose-500" />
-                  <span>الحالة الاجتماعية: <strong className="text-slate-900">{profile?.relationship_status || "أعزب"}</strong></span>
+                  <span>الحالة الاجتماعية: <strong className="text-slate-900">{profile?.relationship_status || "غير محدد"}</strong></span>
                 </div>
               </div>
             </div>
@@ -601,7 +601,7 @@ export default function ProfilePage() {
               <div className="flex items-start gap-2.5 text-xs">
                 <GraduationCap className="w-5 h-5 text-orange-500 mt-0.5" />
                 <div>
-                  <p className="font-black text-slate-900">{profile?.education || "غير محدد"}</p>
+                  <p className="font-black text-slate-900">{profile?.education || "لم يتم تحديد المؤهل الدراسي بعد"}</p>
                 </div>
               </div>
             </div>
@@ -617,11 +617,11 @@ export default function ProfilePage() {
 
               <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
                 <Activity className="w-4 h-4 text-orange-500" />
-                <span>{editHobbies || "لم يتم تحديد هوايات"}</span>
+                <span>{editHobbies || "لم يتم تحديد هوايات بعد"}</span>
               </div>
             </div>
 
-            {/* الأصدقاء الفعليون */}
+            {/* الأصدقاء الفعليون فقط */}
             <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-black text-xs text-slate-900">الأصدقاء ({friends.length})</h3>
@@ -819,6 +819,7 @@ export default function ProfilePage() {
                   rows={2}
                   value={editBio}
                   onChange={(e) => setEditBio(e.target.value)}
+                  placeholder="اكتب شيئاً عن نفسك..."
                   className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-bold focus:outline-none focus:border-orange-500 resize-none"
                 />
               </div>
@@ -829,6 +830,7 @@ export default function ProfilePage() {
                   type="text"
                   value={editLocation}
                   onChange={(e) => setEditLocation(e.target.value)}
+                  placeholder="مثال: الجيزة، مصر"
                   className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-bold focus:outline-none focus:border-orange-500"
                 />
               </div>
@@ -839,6 +841,7 @@ export default function ProfilePage() {
                   type="text"
                   value={editEducation}
                   onChange={(e) => setEditEducation(e.target.value)}
+                  placeholder="المؤهل الدراسي أو الكلية"
                   className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-bold focus:outline-none focus:border-orange-500"
                 />
               </div>
