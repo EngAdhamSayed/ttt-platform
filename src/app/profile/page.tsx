@@ -21,7 +21,6 @@ import {
   Plus,
   Video,
   Radio,
-  ChevronDown,
   Activity,
   ThumbsUp,
   MessageCircle,
@@ -38,7 +37,7 @@ interface Profile {
   location?: string;
   education?: string;
   relationship_status?: string;
-  birth_date?: string;
+  birth_date?: string | null;
   hobbies?: string[];
   is_verified?: boolean;
   role?: string;
@@ -84,7 +83,6 @@ export default function ProfilePage() {
   const [editRelationship, setEditRelationship] = useState("");
   const [editBirthDate, setEditBirthDate] = useState("");
   const [editHobbies, setEditHobbies] = useState("");
-  const [isRelDropdownOpen, setIsRelDropdownOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // كتابة منشور جديد
@@ -115,7 +113,7 @@ export default function ProfilePage() {
 
     const uid = session.user.id;
 
-    // 1. جلب بيانات البروفايل من قاعدة البيانات
+    // 1. جلب بيانات البروفايل
     const { data: prof } = await supabase.from("profiles").select("*").eq("id", uid).single();
 
     if (prof) {
@@ -125,11 +123,11 @@ export default function ProfilePage() {
       setEditLocation(prof.location || "");
       setEditEducation(prof.education || "");
       setEditRelationship(prof.relationship_status || "");
-      setEditBirthDate(prof.birth_date || "");
+      setEditBirthDate(prof.birth_date ? String(prof.birth_date) : "");
       setEditHobbies(prof.hobbies && prof.hobbies.length > 0 ? prof.hobbies.join(" • ") : "");
     }
 
-    // 2. جلب منشورات المستخدم الفعلية
+    // 2. جلب المنشورات
     const { data: myPosts } = await supabase
       .from("posts")
       .select("*")
@@ -138,7 +136,7 @@ export default function ProfilePage() {
 
     setPosts(myPosts || []);
 
-    // 3. جلب الأصدقاء المقبولين فقط
+    // 3. جلب الأصدقاء الفعليين المقبولين
     const { data: sentRel } = await supabase
       .from("friendships")
       .select("receiver_id")
@@ -271,6 +269,7 @@ export default function ProfilePage() {
           created_at: new Date().toISOString(),
         },
       ]);
+      alert("تمت إضافة القصة بنجاح!");
     } catch (err) {
       console.error("Story upload error:", err);
     }
@@ -311,7 +310,7 @@ export default function ProfilePage() {
       location: editLocation.trim(),
       education: editEducation.trim(),
       relationship_status: editRelationship.trim(),
-      birth_date: editBirthDate || null,
+      birth_date: editBirthDate ? editBirthDate : undefined,
       hobbies: editHobbies ? editHobbies.split("•").map((s) => s.trim()).filter(Boolean) : [],
       updated_at: new Date().toISOString(),
     };
@@ -319,7 +318,11 @@ export default function ProfilePage() {
     const { error } = await supabase.from("profiles").update(updatePayload).eq("id", profile.id);
 
     if (!error) {
-      setProfile({ ...profile, ...updatePayload });
+      setProfile({
+        ...profile,
+        ...updatePayload,
+        birth_date: editBirthDate || null,
+      });
       await supabase.auth.updateUser({ data: { full_name: editFullName.trim() } });
       setIsEditOpen(false);
     }
