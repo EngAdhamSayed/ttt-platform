@@ -25,6 +25,7 @@ import {
   Activity,
   ThumbsUp,
   MessageCircle,
+  UserPlus,
 } from "lucide-react";
 
 interface Profile {
@@ -32,7 +33,7 @@ interface Profile {
   user_number_id?: string;
   full_name?: string;
   avatar_url?: string;
-  avatar_type?: "image" | "video";
+  avatar_type?: "image" | "video" | "gif";
   cover_url?: string;
   bio?: string;
   location?: string;
@@ -60,6 +61,7 @@ interface FriendProfile {
   id: string;
   full_name?: string;
   avatar_url?: string;
+  avatar_type?: string;
   user_number_id?: string;
   is_verified?: boolean;
 }
@@ -70,6 +72,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [friends, setFriends] = useState<FriendProfile[]>([]);
+  const [platformUsers, setPlatformUsers] = useState<FriendProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
   // تبويب الفلترة
@@ -128,7 +131,7 @@ export default function ProfilePage() {
       setEditHobbies(prof.hobbies && prof.hobbies.length > 0 ? prof.hobbies.join(" • ") : "");
     }
 
-    // 2. جلب المنشورات
+    // 2. جلب منشورات المستخدم الحقيقية
     const { data: myPosts } = await supabase
       .from("posts")
       .select("*")
@@ -137,7 +140,7 @@ export default function ProfilePage() {
 
     setPosts(myPosts || []);
 
-    // 3. جلب الأصدقاء الفعليين المقبولين
+    // 3. جلب الأصدقاء المقبولين
     const { data: sentRel } = await supabase
       .from("friendships")
       .select("receiver_id")
@@ -150,59 +153,47 @@ export default function ProfilePage() {
       .eq("receiver_id", uid)
       .eq("status", "accepted");
 
-    const uniqueFriendIds = Array.from(
+    const friendIds = Array.from(
       new Set([
         ...(sentRel || []).map((r) => r.receiver_id),
         ...(recvRel || []).map((r) => r.sender_id),
       ])
     ).filter((id) => id && id !== uid);
 
-    if (uniqueFriendIds.length > 0) {
+    if (friendIds.length > 0) {
       const { data: friendsData } = await supabase
         .from("profiles")
-        .select("id, full_name, avatar_url, user_number_id, is_verified")
-        .in("id", uniqueFriendIds);
+        .select("id, full_name, avatar_url, avatar_type, user_number_id, is_verified")
+        .in("id", friendIds);
 
       setFriends(friendsData || []);
     } else {
       setFriends([]);
     }
 
+    // 4. جلب باقي المستخدمين المسجلين بالمنصة (لاستكشاف الأصدقاء)
+    const { data: allUsers } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url, avatar_type, user_number_id, is_verified")
+      .neq("id", uid)
+      .limit(8);
+
+    setPlatformUsers(allUsers || []);
+
     setLoading(false);
   };
 
-  const compressImage = (file: File): Promise<string> => {
+  // دالة قراءة الملفات الذكية (تحافظ على GIF والفيديو بدون ضياع الحركة)
+  const readFileAsDataURL = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = document.createElement("img");
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const maxDim = 800;
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height && width > maxDim) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else if (height > maxDim) {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          ctx?.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL("image/jpeg", 0.7));
-        };
-        img.src = event.target?.result as string;
-      };
+      reader.onload = () => resolve(reader.result as string);
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
   };
 
+  // 📷 رفع وحفظ الصورة الشخصية (صورة ثابتة / GIF / فيديو 5 ثواني)
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
@@ -214,68 +205,76 @@ export default function ProfilePage() {
         video.onloadedmetadata = async () => {
           window.URL.revokeObjectURL(video.src);
           if (video.duration > 5.5) {
-            alert("يجب ألا تزيد مدة الفيديو عن 5 ثوانٍ كصورة شخصية متحركة.");
+            alert("عذراً، يجب ألا تزيد مدة الفيديو عن 5 ثوانٍ كصورة شخصية متحركة.");
             return;
           }
-          const reader = new FileReader();
-          reader.onload = async () => {
-            const finalUrl = reader.result as string;
-            setProfile((prev) => (prev ? { ...prev, avatar_url: finalUrl, avatar_type: "video" } : null));
-            await supabase
-              .from("profiles")
-              .update({ avatar_url: finalUrl, avatar_type: "video" })
-              .eq("id", profile.id);
-            await supabase.auth.updateUser({ data: { avatar_url: finalUrl } });
-          };
-          reader.readAsDataURL(file);
+          const finalUrl = await readFileAsDataURL(file);
+          setProfile((prev) => (prev ? { ...prev, avatar_url: finalUrl, avatar_type: "video" } : null));
+          await supabase
+            .from("profiles")
+            .update({ avatar_url: finalUrl, avatar_type: "video" })
+            .eq("id", profile.id);
+          await supabase.auth.updateUser({ data: { avatar_url: finalUrl } });
         };
         video.src = URL.createObjectURL(file);
-      } else {
-        const compressed = await compressImage(file);
-        setProfile((prev) => (prev ? { ...prev, avatar_url: compressed, avatar_type: "image" } : null));
+      } else if (file.type === "image/gif") {
+        const finalUrl = await readFileAsDataURL(file);
+        setProfile((prev) => (prev ? { ...prev, avatar_url: finalUrl, avatar_type: "gif" } : null));
         await supabase
           .from("profiles")
-          .update({ avatar_url: compressed, avatar_type: "image" })
+          .update({ avatar_url: finalUrl, avatar_type: "gif" })
           .eq("id", profile.id);
-        await supabase.auth.updateUser({ data: { avatar_url: compressed } });
+        await supabase.auth.updateUser({ data: { avatar_url: finalUrl } });
+      } else {
+        const finalUrl = await readFileAsDataURL(file);
+        setProfile((prev) => (prev ? { ...prev, avatar_url: finalUrl, avatar_type: "image" } : null));
+        await supabase
+          .from("profiles")
+          .update({ avatar_url: finalUrl, avatar_type: "image" })
+          .eq("id", profile.id);
+        await supabase.auth.updateUser({ data: { avatar_url: finalUrl } });
       }
     } catch (err) {
       console.error("Avatar upload error:", err);
     }
   };
 
+  // 🌄 رفع صورة الغلاف
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
 
     try {
-      const compressed = await compressImage(file);
-      setProfile((prev) => (prev ? { ...prev, cover_url: compressed } : null));
-      await supabase.from("profiles").update({ cover_url: compressed }).eq("id", profile.id);
+      const finalUrl = await readFileAsDataURL(file);
+      setProfile((prev) => (prev ? { ...prev, cover_url: finalUrl } : null));
+      await supabase.from("profiles").update({ cover_url: finalUrl }).eq("id", profile.id);
     } catch (err) {
       console.error("Cover upload error:", err);
     }
   };
 
+  // 📖 رفع قصة
   const handleStoryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
 
     try {
-      const mediaData = await compressImage(file);
+      const mediaData = await readFileAsDataURL(file);
       await supabase.from("stories").insert([
         {
           user_id: profile.id,
           media_url: mediaData,
+          media_type: file.type.startsWith("video/") ? "video" : "image",
           created_at: new Date().toISOString(),
         },
       ]);
-      alert("تمت إضافة القصة بنجاح!");
+      alert("تمت إضافة القصة بنجاح! 🚀");
     } catch (err) {
       console.error("Story upload error:", err);
     }
   };
 
+  // 📝 نشر منشور جديد
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile || (!postText.trim() && !selectedMedia)) return;
@@ -300,6 +299,7 @@ export default function ProfilePage() {
     setIsPosting(false);
   };
 
+  // 💾 حفظ تعديلات الملف الشخصي
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
@@ -331,16 +331,20 @@ export default function ProfilePage() {
   };
 
   const handleDeletePost = async (postId: string) => {
-    setPosts(posts.filter((p) => p.id !== postId));
-    await supabase.from("posts").delete().eq("id", postId);
+    if (confirm("هل تريد حذف هذا المنشور؟")) {
+      setPosts(posts.filter((p) => p.id !== postId));
+      await supabase.from("posts").delete().eq("id", postId);
+    }
   };
 
+  // تجميع الصور المرفوعة
   const allUserPhotos = [
     ...(profile?.avatar_url && profile.avatar_type !== "video" ? [profile.avatar_url] : []),
     ...(profile?.cover_url ? [profile.cover_url] : []),
     ...posts.flatMap((p) => (p.media_urls && p.media_type !== "video" ? p.media_urls : [])),
   ];
 
+  // تجميع مقاطع الفيديو والريلز
   const allUserReels = posts.filter(
     (p) => p.media_type === "video" || p.media_urls?.some((url) => url.startsWith("data:video") || url.endsWith(".mp4"))
   );
@@ -359,7 +363,7 @@ export default function ProfilePage() {
       {/* 🟢 1. منطقة الغلاف والصورة والهيدر الأصلي الفخم */}
       <div className="bg-white shadow-sm border-b border-slate-100 pb-4">
         
-        {/* الغلاف البرتقالي المتدرج */}
+        {/* الغلاف */}
         <div className="h-44 md:h-52 w-full bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 relative overflow-hidden">
           {profile?.cover_url && (
             <img src={profile.cover_url} alt="الغلاف" className="w-full h-full object-cover" />
@@ -383,7 +387,7 @@ export default function ProfilePage() {
           />
         </div>
 
-        {/* الصورة الشخصية وبجانبها الاسم بمحاذاة منتصف الصورة */}
+        {/* الصورة الشخصية (تدعم فيديو 5 ثواني / GIF / صورة) */}
         <div className="max-w-lg mx-auto px-4 -mt-12 relative flex items-center gap-3">
           
           <div className="relative flex-shrink-0 z-10">
@@ -404,14 +408,14 @@ export default function ProfilePage() {
               type="button"
               onClick={() => avatarFileRef.current?.click()}
               className="absolute bottom-0 left-0 z-20 bg-slate-100 hover:bg-slate-200 border-2 border-white p-1.5 rounded-full shadow text-slate-800 transition cursor-pointer"
-              title="تغيير الصورة أو فيديو متحرك 5ث"
+              title="تغيير الصورة (يدعم فيديو 5ث أو GIF)"
             >
               <Camera className="w-3.5 h-3.5" />
             </button>
             <input
               ref={avatarFileRef}
               type="file"
-              accept="image/*,video/*"
+              accept="image/*,video/mp4,video/webm,image/gif"
               className="hidden"
               onChange={handleAvatarUpload}
             />
@@ -435,7 +439,7 @@ export default function ProfilePage() {
         {/* الرتبة والمسافة الفاصلة + البايو + أزرار الإجراءات */}
         <div className="max-w-lg mx-auto px-4 mt-3 space-y-3">
           
-          {/* شارة الرتبة الأصلية الفاخرة */}
+          {/* شارة الرتبة الأصلية */}
           <div className="flex items-center justify-between pt-1">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-orange-50 border border-orange-200 text-xs font-black shadow-sm">
               <Sparkles className="w-3.5 h-3.5 text-orange-500" />
@@ -465,7 +469,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* 🔘 أزرار الإجراءات الأصلية */}
+          {/* 🔘 أزرار الإجراءات */}
           <div className="grid grid-cols-2 gap-2 pt-1">
             <button
               type="button"
@@ -490,7 +494,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* 🟢 2. شريط الفلترة البرتقالي الأصلي */}
+      {/* 🟢 2. شريط الفلترة */}
       <div className="max-w-lg mx-auto px-4 mt-3">
         <div className="flex items-center gap-2">
           {[
@@ -513,7 +517,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* 🟢 3. كروت وتفاصيل فيسبوك الأصلية المنسقة */}
+      {/* 🟢 3. محتوى الصفحة وكروت التفاصيل والأصدقاء */}
       <main className="max-w-lg mx-auto px-4 mt-3 space-y-3">
         
         {/* 📸 عند اختيار فلتر الصور */}
@@ -552,7 +556,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* 📑 كروت التفاصيل فيسبوك الأصلية */}
+        {/* 📑 المحتوى العام (الكل) */}
         {filterType === "all" && (
           <>
             {/* التفاصيل الشخصية */}
@@ -616,20 +620,23 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* الأصدقاء الفعليون فقط */}
+            {/* الأصدقاء الحقيقيون / أعضاء المنصة المسجلون */}
             <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-black text-xs text-slate-900">الأصدقاء ({friends.length})</h3>
+                <div>
+                  <h3 className="font-black text-xs text-slate-900">الأصدقاء وأعضاء المنصة</h3>
+                  <span className="text-[10px] text-slate-400 font-bold">{friends.length > 0 ? `${friends.length} صديق` : `${platformUsers.length} عضو مسجل`}</span>
+                </div>
                 <Link href="/friends" className="text-xs font-bold text-orange-600 hover:underline">
                   عرض الكل
                 </Link>
               </div>
 
-              {friends.length === 0 ? (
-                <p className="text-xs font-bold text-slate-400 text-center py-2">لا يوجد أصدقاء مضافين حتى الآن</p>
+              {(friends.length > 0 ? friends : platformUsers).length === 0 ? (
+                <p className="text-xs font-bold text-slate-400 text-center py-2">لا يوجد مستخدمون مسجلون بعد</p>
               ) : (
                 <div className="grid grid-cols-4 gap-2 text-center">
-                  {friends.slice(0, 4).map((f) => (
+                  {(friends.length > 0 ? friends : platformUsers).slice(0, 4).map((f) => (
                     <Link
                       key={f.id}
                       href={`/profile/${f.id}`}
@@ -637,12 +644,16 @@ export default function ProfilePage() {
                     >
                       <div className="w-12 h-12 mx-auto rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-xs border border-orange-500 overflow-hidden">
                         {f.avatar_url ? (
-                          <img src={f.avatar_url} alt="" className="w-full h-full object-cover" />
+                          f.avatar_type === "video" || f.avatar_url.startsWith("data:video") ? (
+                            <video src={f.avatar_url} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+                          ) : (
+                            <img src={f.avatar_url} alt="" className="w-full h-full object-cover" />
+                          )
                         ) : (
                           f.full_name?.charAt(0).toUpperCase() || "U"
                         )}
                       </div>
-                      <p className="font-bold text-[10px] text-slate-900 truncate">{f.full_name || ""}</p>
+                      <p className="font-bold text-[10px] text-slate-900 truncate">{f.full_name || "مستخدم"}</p>
                     </Link>
                   ))}
                 </div>
@@ -671,7 +682,7 @@ export default function ProfilePage() {
                     onChange={async (e) => {
                       const f = e.target.files?.[0];
                       if (f) {
-                        const dataUrl = await compressImage(f);
+                        const dataUrl = await readFileAsDataURL(f);
                         setSelectedMedia(dataUrl);
                         setSelectedMediaType(f.type.startsWith("video") ? "video" : "image");
                       }
@@ -737,8 +748,12 @@ export default function ProfilePage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
                         <div className="w-9 h-9 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-xs border border-orange-500 overflow-hidden">
-                          {profile?.avatar_url && profile.avatar_type !== "video" ? (
-                            <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                          {profile?.avatar_url ? (
+                            profile.avatar_type === "video" || profile.avatar_url.startsWith("data:video") ? (
+                              <video src={profile.avatar_url} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+                            ) : (
+                              <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                            )
                           ) : (
                             profile?.full_name?.charAt(0).toUpperCase() || "U"
                           )}
