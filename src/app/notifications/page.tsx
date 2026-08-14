@@ -2,24 +2,33 @@
 
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Bell, UserPlus, UserCheck, Heart, Check, Trash2, Loader2 } from "lucide-react";
+import { Bell, UserPlus, UserCheck, Heart, MessageSquare, Check, Trash2, Loader2, BadgeCheck } from "lucide-react";
 import Link from "next/link";
+
+interface Profile {
+  id: string;
+  full_name: string;
+  avatar_url?: string;
+  is_verified: boolean;
+}
 
 interface NotificationItem {
   id: string;
-  sender_name: string;
-  sender_avatar: string;
-  type: "friend_request" | "friend_accept" | "new_follower";
+  user_id: string;
+  actor_id: string;
+  type: string;
   content: string;
+  entity_id?: string;
   is_read: boolean;
   created_at: string;
+  actor?: Profile;
 }
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔔 تشغيل صوت نغمة إشعار نقي ومميز (Web Audio API Synthesizer)
+  // نغمة رنين ناعمة وعالية الجودة
   const playNotificationSound = () => {
     try {
       const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
@@ -27,7 +36,6 @@ export default function NotificationsPage() {
       const gain = audioCtx.createGain();
 
       osc.type = "sine";
-      // نغمة رنين تصاعدية ناعمة
       osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
       osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15); // A5
 
@@ -40,22 +48,31 @@ export default function NotificationsPage() {
       osc.start();
       osc.stop(audioCtx.currentTime + 0.35);
     } catch {
-      // AudioContext fallback
+      // AudioContext Fallback
     }
   };
 
   useEffect(() => {
     fetchNotifications();
 
-    // الاستماع الفوري لأي إشعار جديد في الوقت الفعلي وتفعيل الصوت
     const channel = supabase
       .channel("realtime-notifications")
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notifications" },
-        (payload) => {
+        async (payload) => {
           playNotificationSound();
-          setNotifications((prev) => [payload.new as NotificationItem, ...prev]);
+          const { data: actorData } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", payload.new.actor_id)
+            .single();
+
+          const newItem: NotificationItem = {
+            ...(payload.new as NotificationItem),
+            actor: actorData || undefined,
+          };
+          setNotifications((prev) => [newItem, ...prev]);
         }
       )
       .subscribe();
@@ -71,7 +88,7 @@ export default function NotificationsPage() {
     if (session?.user) {
       const { data } = await supabase
         .from("notifications")
-        .select("*")
+        .select("*, actor:profiles!actor_id(*)")
         .eq("user_id", session.user.id)
         .order("created_at", { ascending: false });
 
@@ -95,12 +112,8 @@ export default function NotificationsPage() {
 
   return (
     <div className="min-h-screen bg-[#faf8f5] text-slate-900 dir-rtl font-sans select-none pb-20">
-      
-      {/* الهيدر */}
       <header className="sticky top-0 z-30 bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-2">
-          <h1 className="text-lg font-black text-slate-900">الإشعارات</h1>
-        </div>
+        <h1 className="text-lg font-black text-slate-900">الإشعارات</h1>
 
         {notifications.some((n) => !n.is_read) && (
           <button
@@ -113,7 +126,6 @@ export default function NotificationsPage() {
         )}
       </header>
 
-      {/* قائمة الإشعارات */}
       <main className="p-4 max-w-lg mx-auto space-y-2.5">
         {loading ? (
           <div className="bg-white p-8 rounded-3xl border border-slate-100 text-center flex justify-center items-center gap-2">
@@ -136,18 +148,20 @@ export default function NotificationsPage() {
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <div className="w-10 h-10 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-sm border-2 border-orange-500">
-                    {item.sender_avatar}
+                    {item.actor?.full_name?.charAt(0).toUpperCase() || "U"}
                   </div>
                   <div className="absolute -bottom-1 -left-1 p-0.5 rounded-full bg-white shadow-sm">
                     {item.type === "friend_request" && <UserPlus className="w-3.5 h-3.5 text-orange-500" />}
                     {item.type === "friend_accept" && <UserCheck className="w-3.5 h-3.5 text-emerald-500" />}
                     {item.type === "new_follower" && <Heart className="w-3.5 h-3.5 text-pink-500" />}
+                    {item.type === "like" && <Heart className="w-3.5 h-3.5 text-red-500" />}
+                    {item.type === "comment" && <MessageSquare className="w-3.5 h-3.5 text-blue-500" />}
                   </div>
                 </div>
 
                 <div className="text-right">
                   <p className="text-xs font-bold text-slate-800">
-                    <span className="font-black text-slate-900">{item.sender_name} </span>
+                    <span className="font-black text-slate-900">{item.actor?.full_name || "مستخدم"} </span>
                     {item.content}
                   </p>
                   <span className="text-[10px] font-bold text-slate-400">
@@ -178,7 +192,6 @@ export default function NotificationsPage() {
           ))
         )}
       </main>
-
     </div>
   );
 }
