@@ -118,38 +118,20 @@ export default function ProfilePage() {
 
     const uid = session.user.id;
 
-    // 1. جلب بيانات البروفايل الحقيقية
+    // 1. جلب بيانات البروفايل الحقيقية من Supabase
     const { data: prof } = await supabase.from("profiles").select("*").eq("id", uid).single();
     if (prof) {
       setProfile(prof);
-      setEditFullName(prof.full_name || "adham sayed");
-      setEditBio(prof.bio || "you can feel fog ✨\nel_fox");
-      setEditLocation(prof.location || "الجيزة، مصر");
-      setEditEducation(prof.education || "معهد الجيزة العالي للهندسة والتكنولوجيا");
+      setEditFullName(prof.full_name || "");
+      setEditBio(prof.bio || "");
+      setEditLocation(prof.location || "");
+      setEditEducation(prof.education || "");
       setEditRelationship(prof.relationship_status || "أعزب");
-      setEditBirthDate(prof.birth_date || "2005-11-08");
-      setEditHobbies(prof.hobbies ? prof.hobbies.join(" • ") : "القراءة • الموسيقى • البرمجة");
-    } else {
-      const fallbackProf: Profile = {
-        id: uid,
-        user_number_id: "52752497",
-        full_name: session.user.user_metadata?.full_name || "adham sayed",
-        bio: "you can feel fog ✨\nel_fox",
-        location: "الجيزة، مصر",
-        education: "معهد الجيزة العالي للهندسة والتكنولوجيا",
-        relationship_status: "أعزب",
-        birth_date: "2005-11-08",
-        hobbies: ["القراءة", "الموسيقى", "البرمجة"],
-        is_verified: true,
-        role: "admin",
-        rank_tier: "millionaire_dev",
-        rank_score: 100000000,
-      };
-      await supabase.from("profiles").upsert(fallbackProf);
-      setProfile(fallbackProf);
+      setEditBirthDate(prof.birth_date || "");
+      setEditHobbies(prof.hobbies && prof.hobbies.length > 0 ? prof.hobbies.join(" • ") : "");
     }
 
-    // 2. جلب المنشورات
+    // 2. جلب منشورات المستخدم الحقيقية مرتبة من الأحدث للأقدم
     const { data: myPosts } = await supabase
       .from("posts")
       .select("*")
@@ -158,7 +140,7 @@ export default function ProfilePage() {
 
     if (myPosts) setPosts(myPosts);
 
-    // 3. جلب الأصدقاء
+    // 3. جلب الأصدقاء الفعليين المقبولين من جدول العلاقات
     const { data: relations } = await supabase
       .from("friendships")
       .select("sender_id, receiver_id, status")
@@ -177,18 +159,13 @@ export default function ProfilePage() {
 
       if (friendsData) setFriends(friendsData);
     } else {
-      setFriends([
-        { id: "f1", full_name: "NasrEldeen Elwazery", user_number_id: "1001", is_verified: false },
-        { id: "f2", full_name: "Abdalla Ahmed", user_number_id: "1002", is_verified: false },
-        { id: "f3", full_name: "Wesam Hesham", user_number_id: "1003", is_verified: false },
-        { id: "f4", full_name: "Mostafa A Khadrawy", user_number_id: "1004", is_verified: false },
-      ]);
+      setFriends([]);
     }
 
     setLoading(false);
   };
 
-  // دالة تحجيم وضغط الصور لضمان عدم تجاوز سعة الاستعلام وحفظها في قاعدة البيانات بنجاح
+  // دالة تحجيم وضغط الصور لضمان الحفظ الدائم بدون تخطي السعة
   const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -196,7 +173,7 @@ export default function ProfilePage() {
         const img = document.createElement("img");
         img.onload = () => {
           const canvas = document.createElement("canvas");
-          const maxDim = 700;
+          const maxDim = 800;
           let width = img.width;
           let height = img.height;
 
@@ -212,7 +189,7 @@ export default function ProfilePage() {
           canvas.height = height;
           const ctx = canvas.getContext("2d");
           ctx?.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL("image/jpeg", 0.65));
+          resolve(canvas.toDataURL("image/jpeg", 0.7));
         };
         img.src = event.target?.result as string;
       };
@@ -221,7 +198,7 @@ export default function ProfilePage() {
     });
   };
 
-  // 📷 حفظ الصورة الشخصية أو فيديو 5ث دائماً في Supabase
+  // 📷 رفع وحفظ الصورة الشخصية الحقيقية في Supabase
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
@@ -251,19 +228,17 @@ export default function ProfilePage() {
       } else {
         const compressed = await compressImage(file);
         setProfile((prev) => (prev ? { ...prev, avatar_url: compressed, avatar_type: "image" } : null));
-        const { error } = await supabase
+        await supabase
           .from("profiles")
           .update({ avatar_url: compressed, avatar_type: "image" })
           .eq("id", profile.id);
-
-        if (error) console.error("Avatar save error:", error);
       }
     } catch (err) {
       console.error("Avatar upload exception:", err);
     }
   };
 
-  // 🌄 حفظ صورة الغلاف بشكل مضمون في Supabase
+  // 🌄 رفع وحفظ صورة الغلاف الحقيقية في Supabase
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
@@ -271,12 +246,10 @@ export default function ProfilePage() {
     try {
       const compressed = await compressImage(file);
       setProfile((prev) => (prev ? { ...prev, cover_url: compressed } : null));
-      const { error } = await supabase
+      await supabase
         .from("profiles")
         .update({ cover_url: compressed })
         .eq("id", profile.id);
-
-      if (error) console.error("Cover save error:", error);
     } catch (err) {
       console.error("Cover upload exception:", err);
     }
@@ -293,7 +266,7 @@ export default function ProfilePage() {
         {
           user_id: profile.id,
           media_url: mediaData,
-          caption: "قصة جديدة",
+          caption: "قصة من البروفايل",
           created_at: new Date().toISOString(),
         },
       ]);
@@ -313,6 +286,7 @@ export default function ProfilePage() {
       user_id: profile.id,
       content: postText.trim(),
       media_urls: selectedMedia ? [selectedMedia] : [],
+      media_type: selectedMediaType,
       visibility: "public",
       created_at: new Date().toISOString(),
     };
@@ -321,18 +295,6 @@ export default function ProfilePage() {
 
     if (!error && data) {
       setPosts([data, ...posts]);
-      setPostText("");
-      setSelectedMedia(null);
-    } else {
-      const localPost: Post = {
-        id: Date.now().toString(),
-        user_id: profile.id,
-        content: postText.trim(),
-        media_urls: selectedMedia ? [selectedMedia] : [],
-        visibility: "public",
-        created_at: new Date().toISOString(),
-      };
-      setPosts([localPost, ...posts]);
       setPostText("");
       setSelectedMedia(null);
     }
@@ -351,8 +313,8 @@ export default function ProfilePage() {
       location: editLocation.trim(),
       education: editEducation.trim(),
       relationship_status: editRelationship,
-      birth_date: editBirthDate,
-      hobbies: editHobbies.split("•").map((s) => s.trim()).filter(Boolean),
+      birth_date: editBirthDate || null,
+      hobbies: editHobbies ? editHobbies.split("•").map((s) => s.trim()).filter(Boolean) : [],
       updated_at: new Date().toISOString(),
     };
 
@@ -362,8 +324,7 @@ export default function ProfilePage() {
       setProfile({ ...profile, ...updatePayload });
       setIsEditOpen(false);
     } else {
-      console.error("Profile update error:", error);
-      alert("حدث خطأ أثناء الحفظ، يرجى المحاولة ثانية.");
+      alert("حدث خطأ أثناء الحفظ، يرجى المحاولة مرة أخرى.");
     }
     setIsSaving(false);
   };
@@ -375,14 +336,14 @@ export default function ProfilePage() {
     }
   };
 
-  // استخراج جميع الصور المنشورة
+  // تجميع جميع الصور الفعلية المرفوعة
   const allUserPhotos = [
     ...(profile?.avatar_url && profile.avatar_type !== "video" ? [profile.avatar_url] : []),
     ...(profile?.cover_url ? [profile.cover_url] : []),
     ...posts.flatMap((p) => (p.media_urls && p.media_type !== "video" ? p.media_urls : [])),
   ];
 
-  // استخراج جميع الريلز / الفيديوهات
+  // تجميع جميع مقاطع الريلز / الفيديوهات الفعلية
   const allUserReels = posts.filter(
     (p) => p.media_type === "video" || p.media_urls?.some((url) => url.startsWith("data:video") || url.endsWith(".mp4"))
   );
@@ -411,7 +372,7 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* زر كاميرا تغيير الغلاف (فعال وظاهر بوضوح) */}
+          {/* زر كاميرا تغيير الغلاف */}
           <button
             type="button"
             onClick={() => coverFileRef.current?.click()}
@@ -441,7 +402,7 @@ export default function ProfilePage() {
                   <img src={profile.avatar_url} alt="الصورة الشخصية" className="w-full h-full object-cover" />
                 )
               ) : (
-                profile?.full_name?.charAt(0).toUpperCase() || "A"
+                profile?.full_name?.charAt(0).toUpperCase() || "U"
               )}
             </div>
 
@@ -466,11 +427,11 @@ export default function ProfilePage() {
           {/* الاسم ومُعرّف الحساب بمحاذاة منتصف الصورة تماماً */}
           <div className="pt-12 space-y-0.5 text-right">
             <div className="flex items-center gap-1.5">
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">{profile?.full_name}</h1>
+              <h1 className="text-xl font-black text-slate-900 tracking-tight">{profile?.full_name || "مستخدم"}</h1>
               {profile?.is_verified && <BadgeCheck className="w-5 h-5 text-orange-500 fill-orange-100" />}
             </div>
             <span className="text-[11px] font-bold text-slate-400 block text-right" dir="ltr">
-              #{profile?.user_number_id || "52752497"}
+              #{profile?.user_number_id || "000000"}
             </span>
           </div>
 
@@ -560,7 +521,7 @@ export default function ProfilePage() {
       {/* 🟢 3. محتوى الصفحة حسب الفلتر المختار */}
       <main className="max-w-lg mx-auto px-4 mt-3 space-y-3">
         
-        {/* 📸 عند اختيار فلتر الصور: عرض شبكة الصور الشاملة */}
+        {/* 📸 عند اختيار فلتر الصور */}
         {filterType === "photos" && (
           <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3">
             <h3 className="font-black text-xs text-slate-900">جميع الصور ({allUserPhotos.length})</h3>
@@ -578,7 +539,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* 🎬 عند اختيار فلتر الريلز: عرض شبكة مقاطع الفيديو */}
+        {/* 🎬 عند اختيار فلتر الريلز */}
         {filterType === "reels" && (
           <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3">
             <h3 className="font-black text-xs text-slate-900">مقاطع الريلز ({allUserReels.length})</h3>
@@ -596,7 +557,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* 📑 عند اختيار فلتر "الكل": عرض أقسام التفاصيل والمنشورات مرتبة */}
+        {/* 📑 عند اختيار فلتر "الكل" */}
         {filterType === "all" && (
           <>
             {/* التفاصيل الشخصية */}
@@ -611,15 +572,15 @@ export default function ProfilePage() {
               <div className="space-y-2 text-xs font-bold text-slate-700">
                 <div className="flex items-center gap-2.5">
                   <MapPin className="w-4 h-4 text-orange-500" />
-                  <span>يقيم في <strong className="text-slate-900">{profile?.location || "الجيزة، مصر"}</strong></span>
+                  <span>يقيم في <strong className="text-slate-900">{profile?.location || "غير محدد"}</strong></span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <HomeIcon className="w-4 h-4 text-orange-500" />
-                  <span>من <strong className="text-slate-900">{profile?.location || "الجيزة، مصر"}</strong></span>
+                  <span>من <strong className="text-slate-900">{profile?.location || "غير محدد"}</strong></span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <Calendar className="w-4 h-4 text-orange-500" />
-                  <span>تاريخ الميلاد: <strong className="text-slate-900">{profile?.birth_date || "8 نوفمبر 2005"}</strong></span>
+                  <span>تاريخ الميلاد: <strong className="text-slate-900">{profile?.birth_date || "غير محدد"}</strong></span>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <Heart className="w-4 h-4 text-rose-500" />
@@ -640,8 +601,7 @@ export default function ProfilePage() {
               <div className="flex items-start gap-2.5 text-xs">
                 <GraduationCap className="w-5 h-5 text-orange-500 mt-0.5" />
                 <div>
-                  <p className="font-black text-slate-900">{profile?.education || "معهد الجيزة العالي للهندسة والتكنولوجيا"}</p>
-                  <p className="text-[10px] font-bold text-slate-400">منذ سبتمبر 2025</p>
+                  <p className="font-black text-slate-900">{profile?.education || "غير محدد"}</p>
                 </div>
               </div>
             </div>
@@ -657,11 +617,11 @@ export default function ProfilePage() {
 
               <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
                 <Activity className="w-4 h-4 text-orange-500" />
-                <span>{editHobbies || "القراءة • الموسيقى • البرمجة"}</span>
+                <span>{editHobbies || "لم يتم تحديد هوايات"}</span>
               </div>
             </div>
 
-            {/* الأصدقاء */}
+            {/* الأصدقاء الفعليون */}
             <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-black text-xs text-slate-900">الأصدقاء ({friends.length})</h3>
@@ -698,7 +658,7 @@ export default function ProfilePage() {
             <div className="bg-white p-3.5 rounded-3xl border border-slate-100 shadow-sm space-y-2.5">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-xs flex-shrink-0">
-                  {profile?.full_name?.charAt(0).toUpperCase() || "A"}
+                  {profile?.full_name?.charAt(0).toUpperCase() || "U"}
                 </div>
                 <input
                   type="text"
@@ -765,7 +725,7 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* فيد المنشورات */}
+            {/* فيد المنشورات الفعلي */}
             <div className="space-y-3 pt-1">
               <div className="flex items-center justify-between">
                 <h3 className="font-black text-xs text-slate-900">المنشورات ({posts.length})</h3>
@@ -785,12 +745,12 @@ export default function ProfilePage() {
                           {profile?.avatar_url && profile.avatar_type !== "video" ? (
                             <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                           ) : (
-                            profile?.full_name?.charAt(0).toUpperCase()
+                            profile?.full_name?.charAt(0).toUpperCase() || "U"
                           )}
                         </div>
                         <div>
                           <div className="flex items-center gap-1">
-                            <h4 className="font-black text-xs text-slate-900">{profile?.full_name}</h4>
+                            <h4 className="font-black text-xs text-slate-900">{profile?.full_name || "مستخدم"}</h4>
                             {profile?.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-orange-500" />}
                           </div>
                           <span className="text-[10px] font-bold text-slate-400">
