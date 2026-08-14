@@ -16,12 +16,9 @@ import {
   Sparkles,
   Share2,
   Trash2,
-  Lock,
-  Globe,
   Loader2,
   X,
   Image as ImageIcon,
-  Send,
   Plus,
   Video,
   Radio,
@@ -118,7 +115,7 @@ export default function ProfilePage() {
 
     const uid = session.user.id;
 
-    // 1. جلب بيانات البروفايل الحقيقية فقط من Supabase
+    // 1. جلب بيانات البروفايل الحقيقية من Supabase
     const { data: prof } = await supabase.from("profiles").select("*").eq("id", uid).single();
     if (prof) {
       setProfile(prof);
@@ -131,37 +128,42 @@ export default function ProfilePage() {
       setEditHobbies(prof.hobbies && prof.hobbies.length > 0 ? prof.hobbies.join(" • ") : "");
     }
 
-    // 2. جلب منشورات المستخدم الحقيقية فقط
+    // 2. جلب منشورات المستخدم الحقيقية مرتبة من الأحدث للأقدم
     const { data: myPosts } = await supabase
       .from("posts")
       .select("*")
       .eq("user_id", uid)
       .order("created_at", { ascending: false });
 
-    if (myPosts) {
-      setPosts(myPosts);
-    } else {
-      setPosts([]);
-    }
+    setPosts(myPosts || []);
 
-    // 3. جلب الأصدقاء الحقيقيين المقبولين فقط
-    const { data: relations } = await supabase
+    // 3. جلب الأصدقاء الفعليين بدقة (accepted فقط بدون تكرار)
+    const { data: sentRelations } = await supabase
       .from("friendships")
-      .select("sender_id, receiver_id, status")
-      .or(`sender_id.eq.${uid},receiver_id.eq.${uid}`)
+      .select("receiver_id")
+      .eq("sender_id", uid)
       .eq("status", "accepted");
 
-    const friendIds = (relations || []).map((r) =>
-      r.sender_id === uid ? r.receiver_id : r.sender_id
-    );
+    const { data: receivedRelations } = await supabase
+      .from("friendships")
+      .select("sender_id")
+      .eq("receiver_id", uid)
+      .eq("status", "accepted");
 
-    if (friendIds.length > 0) {
+    const rawFriendIds = [
+      ...(sentRelations || []).map((r) => r.receiver_id),
+      ...(receivedRelations || []).map((r) => r.sender_id),
+    ];
+
+    const uniqueFriendIds = Array.from(new Set(rawFriendIds));
+
+    if (uniqueFriendIds.length > 0) {
       const { data: friendsData } = await supabase
         .from("profiles")
         .select("id, full_name, avatar_url, user_number_id, is_verified")
-        .in("id", friendIds);
+        .in("id", uniqueFriendIds);
 
-      if (friendsData) setFriends(friendsData);
+      setFriends(friendsData || []);
     } else {
       setFriends([]);
     }
@@ -415,7 +417,7 @@ export default function ProfilePage() {
               type="button"
               onClick={() => avatarFileRef.current?.click()}
               className="absolute bottom-0 left-0 z-20 bg-slate-100 hover:bg-slate-200 border-2 border-white p-1.5 rounded-full shadow text-slate-800 transition cursor-pointer"
-              title="تغيير الصورة الشخصية"
+              title="تغيير الصورة أو فيديو متحرك 5ث"
             >
               <Camera className="w-3.5 h-3.5" />
             </button>
@@ -444,7 +446,7 @@ export default function ProfilePage() {
         {/* الرتبة والمسافة الفاصلة + البايو + أزرار الإجراءات */}
         <div className="max-w-lg mx-auto px-4 mt-3 space-y-3">
           
-          {/* شارة الرتبة والإحصائيات الحقيقية مع مسافة فاصلة */}
+          {/* شارة الرتبة والإحصائيات الحقيقية الفعلية من قاعدة البيانات */}
           <div className="flex items-center justify-between pt-1">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-orange-50 border border-orange-200 text-xs font-black shadow-sm">
               <Sparkles className="w-3.5 h-3.5 text-orange-500" />
@@ -459,14 +461,14 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* البايو الحقيقي (إذا وجد) */}
+          {/* البايو */}
           {profile?.bio && (
             <p className="text-xs font-semibold text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50 p-2.5 rounded-2xl border border-slate-100">
               {profile.bio}
             </p>
           )}
 
-          {/* الحالة الاجتماعية الحقيقية (إذا حددها) */}
+          {/* الحالة الاجتماعية */}
           {profile?.relationship_status && (
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
               <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
@@ -584,7 +586,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex items-center gap-2.5">
                   <Heart className="w-4 h-4 text-rose-500" />
-                  <span>الحالة الاجتماعية: <strong className="text-slate-900">{profile?.relationship_status || "غير محدد"}</strong></span>
+                  <span>الحالة الاجتماعية: <strong className="text-slate-900">{profile?.relationship_status || "أعزب"}</strong></span>
                 </div>
               </div>
             </div>
@@ -644,7 +646,7 @@ export default function ProfilePage() {
                         {f.avatar_url ? (
                           <img src={f.avatar_url} alt={f.full_name} className="w-full h-full object-cover" />
                         ) : (
-                          f.full_name?.charAt(0).toUpperCase()
+                          f.full_name?.charAt(0).toUpperCase() || "U"
                         )}
                       </div>
                       <p className="font-bold text-[10px] text-slate-900 truncate">{f.full_name}</p>
