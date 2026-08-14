@@ -16,9 +16,12 @@ import {
   Sparkles,
   Share2,
   Trash2,
+  Lock,
+  Globe,
   Loader2,
   X,
   Image as ImageIcon,
+  Send,
   Plus,
   Video,
   Radio,
@@ -115,7 +118,7 @@ export default function ProfilePage() {
 
     const uid = session.user.id;
 
-    // 1. جلب بيانات البروفايل الحقيقية من Supabase
+    // 1. جلب بيانات البروفايل
     const { data: prof } = await supabase.from("profiles").select("*").eq("id", uid).single();
     if (prof) {
       setProfile(prof);
@@ -128,7 +131,7 @@ export default function ProfilePage() {
       setEditHobbies(prof.hobbies && prof.hobbies.length > 0 ? prof.hobbies.join(" • ") : "");
     }
 
-    // 2. جلب منشورات المستخدم الحقيقية مرتبة من الأحدث للأقدم
+    // 2. جلب المنشورات الحقيقية
     const { data: myPosts } = await supabase
       .from("posts")
       .select("*")
@@ -137,31 +140,26 @@ export default function ProfilePage() {
 
     setPosts(myPosts || []);
 
-    // 3. جلب الأصدقاء الفعليين بدقة (accepted فقط بدون تكرار)
-    const { data: sentRelations } = await supabase
+    // 3. جلب الأصدقاء الفعليين المقبولين بدقة شديدة (Accepted Only)
+    const { data: acceptedFriends } = await supabase
       .from("friendships")
-      .select("receiver_id")
-      .eq("sender_id", uid)
-      .eq("status", "accepted");
+      .select("sender_id, receiver_id")
+      .eq("status", "accepted")
+      .or(`sender_id.eq.${uid},receiver_id.eq.${uid}`);
 
-    const { data: receivedRelations } = await supabase
-      .from("friendships")
-      .select("sender_id")
-      .eq("receiver_id", uid)
-      .eq("status", "accepted");
+    const friendIds = Array.from(
+      new Set(
+        (acceptedFriends || [])
+          .map((r) => (r.sender_id === uid ? r.receiver_id : r.sender_id))
+          .filter((id) => id && id !== uid)
+      )
+    );
 
-    const rawFriendIds = [
-      ...(sentRelations || []).map((r) => r.receiver_id),
-      ...(receivedRelations || []).map((r) => r.sender_id),
-    ];
-
-    const uniqueFriendIds = Array.from(new Set(rawFriendIds));
-
-    if (uniqueFriendIds.length > 0) {
+    if (friendIds.length > 0) {
       const { data: friendsData } = await supabase
         .from("profiles")
         .select("id, full_name, avatar_url, user_number_id, is_verified")
-        .in("id", uniqueFriendIds);
+        .in("id", friendIds);
 
       setFriends(friendsData || []);
     } else {
@@ -171,7 +169,6 @@ export default function ProfilePage() {
     setLoading(false);
   };
 
-  // دالة تحجيم وضغط الصور لضمان الحفظ المضمون في DB
   const compressImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -204,7 +201,6 @@ export default function ProfilePage() {
     });
   };
 
-  // 📷 رفع وحفظ الصورة الشخصية في قاعدة البيانات
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
@@ -240,11 +236,10 @@ export default function ProfilePage() {
           .eq("id", profile.id);
       }
     } catch (err) {
-      console.error("Avatar upload exception:", err);
+      console.error(err);
     }
   };
 
-  // 🌄 رفع وحفظ الغلاف في قاعدة البيانات
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
@@ -257,11 +252,10 @@ export default function ProfilePage() {
         .update({ cover_url: compressed })
         .eq("id", profile.id);
     } catch (err) {
-      console.error("Cover upload exception:", err);
+      console.error(err);
     }
   };
 
-  // 📖 نشر قصة في قاعدة البيانات
   const handleStoryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
@@ -276,13 +270,12 @@ export default function ProfilePage() {
           created_at: new Date().toISOString(),
         },
       ]);
-      alert("تم نشر القصة بنجاح وستظهر في الصفحة الرئيسية! 🚀");
+      alert("تم نشر القصة بنجاح! 🚀");
     } catch (err) {
-      console.error("Story upload exception:", err);
+      console.error(err);
     }
   };
 
-  // 📝 نشر منشور جديد في جدول posts
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile || (!postText.trim() && !selectedMedia)) return;
@@ -307,7 +300,6 @@ export default function ProfilePage() {
     setIsPosting(false);
   };
 
-  // 💾 حفظ تعديلات الملف الشخصي في قاعدة البيانات
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
@@ -329,8 +321,6 @@ export default function ProfilePage() {
     if (!error) {
       setProfile({ ...profile, ...updatePayload });
       setIsEditOpen(false);
-    } else {
-      alert("حدث خطأ أثناء الحفظ، يرجى المحاولة مرة أخرى.");
     }
     setIsSaving(false);
   };
@@ -342,14 +332,12 @@ export default function ProfilePage() {
     }
   };
 
-  // استخراج الصور الحقيقية فقط
   const allUserPhotos = [
     ...(profile?.avatar_url && profile.avatar_type !== "video" ? [profile.avatar_url] : []),
     ...(profile?.cover_url ? [profile.cover_url] : []),
     ...posts.flatMap((p) => (p.media_urls && p.media_type !== "video" ? p.media_urls : [])),
   ];
 
-  // استخراج الفيديوهات الحقيقية فقط
   const allUserReels = posts.filter(
     (p) => p.media_type === "video" || p.media_urls?.some((url) => url.startsWith("data:video") || url.endsWith(".mp4"))
   );
@@ -365,7 +353,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-[#faf8f5] text-slate-900 font-sans select-none pb-24 text-right" dir="rtl">
       
-      {/* 🟢 1. منطقة الغلاف والصورة والهيدر بمحاذاة مظبوطة */}
+      {/* 🟢 1. منطقة الغلاف والصورة والهيدر */}
       <div className="bg-white shadow-sm border-b border-slate-100 pb-4">
         
         {/* الغلاف */}
@@ -378,7 +366,6 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* زر كاميرا تغيير الغلاف */}
           <button
             type="button"
             onClick={() => coverFileRef.current?.click()}
@@ -396,7 +383,7 @@ export default function ProfilePage() {
           />
         </div>
 
-        {/* الصورة الشخصية وبجانبها الاسم بمحاذاة منتصف الصورة */}
+        {/* الصورة الشخصية وبجانبها الاسم */}
         <div className="max-w-lg mx-auto px-4 -mt-12 relative flex items-center gap-3">
           
           <div className="relative flex-shrink-0 z-10">
@@ -412,7 +399,6 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* زر كاميرا الصورة الشخصية */}
             <button
               type="button"
               onClick={() => avatarFileRef.current?.click()}
@@ -430,7 +416,6 @@ export default function ProfilePage() {
             />
           </div>
 
-          {/* الاسم ومُعرّف الحساب بمحاذاة منتصف الصورة تماماً */}
           <div className="pt-12 space-y-0.5 text-right">
             <div className="flex items-center gap-1.5">
               <h1 className="text-xl font-black text-slate-900 tracking-tight">{profile?.full_name || "مستخدم"}</h1>
@@ -443,10 +428,9 @@ export default function ProfilePage() {
 
         </div>
 
-        {/* الرتبة والمسافة الفاصلة + البايو + أزرار الإجراءات */}
+        {/* شارة الرتبة والإحصائيات */}
         <div className="max-w-lg mx-auto px-4 mt-3 space-y-3">
           
-          {/* شارة الرتبة والإحصائيات الحقيقية الفعلية من قاعدة البيانات */}
           <div className="flex items-center justify-between pt-1">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-orange-50 border border-orange-200 text-xs font-black shadow-sm">
               <Sparkles className="w-3.5 h-3.5 text-orange-500" />
@@ -461,14 +445,12 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* البايو */}
           {profile?.bio && (
             <p className="text-xs font-semibold text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50 p-2.5 rounded-2xl border border-slate-100">
               {profile.bio}
             </p>
           )}
 
-          {/* الحالة الاجتماعية */}
           {profile?.relationship_status && (
             <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
               <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
@@ -476,7 +458,6 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* 🔘 أزرار الإجراءات الرئيسية */}
           <div className="grid grid-cols-2 gap-2 pt-1">
             <button
               type="button"
@@ -501,7 +482,7 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* 🟢 2. أزرار الفلترة الشغالة (الكل / الصور / الريلز) */}
+      {/* 🟢 2. أزرار الفلترة الشغالة */}
       <div className="max-w-lg mx-auto px-4 mt-3">
         <div className="flex items-center gap-2">
           {[
@@ -524,10 +505,9 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* 🟢 3. محتوى الصفحة حسب الفلتر المختار */}
+      {/* 🟢 3. محتوى الصفحة حسب الفلتر */}
       <main className="max-w-lg mx-auto px-4 mt-3 space-y-3">
         
-        {/* 📸 عند اختيار فلتر الصور */}
         {filterType === "photos" && (
           <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3">
             <h3 className="font-black text-xs text-slate-900">جميع الصور ({allUserPhotos.length})</h3>
@@ -545,7 +525,6 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* 🎬 عند اختيار فلتر الريلز */}
         {filterType === "reels" && (
           <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3">
             <h3 className="font-black text-xs text-slate-900">مقاطع الريلز ({allUserReels.length})</h3>
@@ -563,7 +542,6 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* 📑 عند اختيار فلتر "الكل" */}
         {filterType === "all" && (
           <>
             {/* التفاصيل الشخصية */}
@@ -586,7 +564,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="flex items-center gap-2.5">
                   <Heart className="w-4 h-4 text-rose-500" />
-                  <span>الحالة الاجتماعية: <strong className="text-slate-900">{profile?.relationship_status || "أعزب"}</strong></span>
+                  <span>الحالة الاجتماعية: <strong className="text-slate-900">{profile?.relationship_status || "غير محدد"}</strong></span>
                 </div>
               </div>
             </div>
@@ -623,7 +601,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* الأصدقاء الفعليون فقط */}
+            {/* الأصدقاء الفعليون */}
             <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-black text-xs text-slate-900">الأصدقاء ({friends.length})</h3>
@@ -656,7 +634,7 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* كتابة منشور جديد */}
+            {/* كتابة منشور */}
             <div className="bg-white p-3.5 rounded-3xl border border-slate-100 shadow-sm space-y-2.5">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-xs flex-shrink-0">
@@ -727,7 +705,7 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* فيد المنشورات الفعلي */}
+            {/* فيد المنشورات */}
             <div className="space-y-3 pt-1">
               <div className="flex items-center justify-between">
                 <h3 className="font-black text-xs text-slate-900">المنشورات ({posts.length})</h3>
@@ -848,7 +826,7 @@ export default function ProfilePage() {
                 />
               </div>
 
-              {/* القائمة المنسدلة بهوية المنصة */}
+              {/* القائمة المنسدلة */}
               <div className="relative">
                 <label className="text-slate-600 block mb-1">الحالة الاجتماعية</label>
                 <button
