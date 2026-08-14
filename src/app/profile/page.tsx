@@ -9,6 +9,7 @@ import {
   Camera,
   Edit3,
   MapPin,
+  Home as HomeIcon,
   Calendar,
   Heart,
   GraduationCap,
@@ -346,26 +347,30 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex justify-center items-center">
+      <div className="min-h-screen bg-[#faf8f5] flex justify-center items-center">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans select-none pb-24 text-right" dir="rtl">
-      {/* منطقة الغلاف والصورة الشخصية */}
+    <div className="min-h-screen bg-[#faf8f5] text-slate-900 font-sans select-none pb-24 text-right" dir="rtl">
+      
+      {/* 🟢 1. منطقة الغلاف والصورة والهيدر الأصلي الفخم */}
       <div className="bg-white shadow-sm border-b border-slate-100 pb-4">
-        {/* الغلاف */}
-        <div className="h-44 md:h-52 w-full bg-slate-200 relative overflow-hidden">
+        
+        {/* الغلاف البرتقالي المتدرج */}
+        <div className="h-44 md:h-52 w-full bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 relative overflow-hidden">
           {profile?.cover_url && (
-            <img src={profile.cover_url} alt="Cover" className="w-full h-full object-cover" />
+            <img src={profile.cover_url} alt="الغلاف" className="w-full h-full object-cover" />
           )}
 
+          {/* زر تغيير الغلاف */}
           <button
             type="button"
             onClick={() => coverFileRef.current?.click()}
-            className="absolute bottom-3 left-3 z-20 bg-slate-900/80 hover:bg-slate-900 text-white p-2.5 rounded-full backdrop-blur-md transition shadow cursor-pointer"
+            className="absolute bottom-3 left-3 z-20 bg-slate-900/70 hover:bg-slate-900 text-white p-2 rounded-full backdrop-blur-md transition shadow cursor-pointer"
+            title="تغيير صورة الغلاف"
           >
             <Camera className="w-4 h-4 text-white" />
           </button>
@@ -378,25 +383,28 @@ export default function ProfilePage() {
           />
         </div>
 
-        {/* الصورة الشخصية والاسم */}
+        {/* الصورة الشخصية وبجانبها الاسم بمحاذاة منتصف الصورة */}
         <div className="max-w-lg mx-auto px-4 -mt-12 relative flex items-center gap-3">
+          
           <div className="relative flex-shrink-0 z-10">
-            <div className="w-24 h-24 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-2xl border-4 border-white shadow-lg overflow-hidden">
+            <div className="w-24 h-24 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-3xl border-4 border-white shadow-lg overflow-hidden">
               {profile?.avatar_url ? (
                 profile.avatar_type === "video" || profile.avatar_url.startsWith("data:video") ? (
                   <video src={profile.avatar_url} autoPlay loop muted playsInline className="w-full h-full object-cover" />
                 ) : (
-                  <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                  <img src={profile.avatar_url} alt="الصورة الشخصية" className="w-full h-full object-cover" />
                 )
               ) : (
-                profile?.full_name?.charAt(0).toUpperCase() || ""
+                profile?.full_name?.charAt(0).toUpperCase() || "U"
               )}
             </div>
 
+            {/* زر كاميرا الصورة الشخصية */}
             <button
               type="button"
               onClick={() => avatarFileRef.current?.click()}
               className="absolute bottom-0 left-0 z-20 bg-slate-100 hover:bg-slate-200 border-2 border-white p-1.5 rounded-full shadow text-slate-800 transition cursor-pointer"
+              title="تغيير الصورة أو فيديو متحرك 5ث"
             >
               <Camera className="w-3.5 h-3.5" />
             </button>
@@ -409,54 +417,60 @@ export default function ProfilePage() {
             />
           </div>
 
+          {/* الاسم ومُعرّف الحساب */}
           <div className="pt-12 space-y-0.5 text-right">
             <div className="flex items-center gap-1.5">
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">{profile?.full_name || ""}</h1>
+              <h1 className="text-xl font-black text-slate-900 tracking-tight">{profile?.full_name || ""}</h1>
               {profile?.is_verified && <BadgeCheck className="w-5 h-5 text-orange-500 fill-orange-100" />}
             </div>
             {profile?.user_number_id && (
-              <span className="text-xs font-semibold text-slate-400 block text-right" dir="ltr">
+              <span className="text-[11px] font-bold text-slate-400 block text-right" dir="ltr">
                 #{profile.user_number_id}
               </span>
             )}
           </div>
+
         </div>
 
-        {/* معلومات الملف الشخصي والأزرار */}
+        {/* الرتبة والمسافة الفاصلة + البايو + أزرار الإجراءات */}
         <div className="max-w-lg mx-auto px-4 mt-3 space-y-3">
+          
+          {/* شارة الرتبة الأصلية الفاخرة */}
           <div className="flex items-center justify-between pt-1">
-            {profile?.role && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-orange-50 border border-orange-200 text-xs font-bold shadow-sm">
-                <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-                <span className="text-orange-600">{profile.role}</span>
-              </div>
-            )}
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-orange-50 border border-orange-200 text-xs font-black shadow-sm">
+              <Sparkles className="w-3.5 h-3.5 text-orange-500" />
+              <span className="text-slate-700">الرتبة:</span>
+              <span className="text-orange-600">{profile?.role === "admin" ? "المطور والمؤسس 👑" : "عضو متميز 🌟"}</span>
+            </div>
 
-            <div className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+            <div className="text-xs font-bold text-slate-500 flex items-center gap-1">
               <span>{friends.length} أصدقاء</span>
               <span>•</span>
               <span>{posts.length} منشورات</span>
             </div>
           </div>
 
+          {/* البايو */}
           {profile?.bio && (
-            <p className="text-xs font-normal text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50 p-2.5 rounded-2xl border border-slate-100">
+            <p className="text-xs font-semibold text-slate-700 leading-relaxed whitespace-pre-line bg-slate-50 p-2.5 rounded-2xl border border-slate-100">
               {profile.bio}
             </p>
           )}
 
+          {/* الحالة الاجتماعية */}
           {profile?.relationship_status && (
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
               <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
               <span>{profile.relationship_status}</span>
             </div>
           )}
 
+          {/* 🔘 أزرار الإجراءات الأصلية */}
           <div className="grid grid-cols-2 gap-2 pt-1">
             <button
               type="button"
               onClick={() => storyFileRef.current?.click()}
-              className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 rounded-2xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition cursor-pointer"
+              className="bg-orange-500 hover:bg-orange-600 text-white font-black py-2.5 rounded-2xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-orange-500/20 transition cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>إضافة إلى القصة</span>
@@ -466,16 +480,17 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={() => setIsEditOpen(true)}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2.5 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition border border-slate-200 cursor-pointer"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-black py-2.5 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition border border-slate-200 cursor-pointer"
             >
               <Edit3 className="w-4 h-4 text-slate-600" />
               <span>تعديل الملف الشخصي</span>
             </button>
           </div>
+
         </div>
       </div>
 
-      {/* شريط الفلترة */}
+      {/* 🟢 2. شريط الفلترة البرتقالي الأصلي */}
       <div className="max-w-lg mx-auto px-4 mt-3">
         <div className="flex items-center gap-2">
           {[
@@ -486,9 +501,9 @@ export default function ProfilePage() {
             <button
               key={tab.id}
               onClick={() => setFilterType(tab.id as any)}
-              className={`px-5 py-1.5 rounded-full text-xs font-bold transition cursor-pointer ${
+              className={`px-5 py-1.5 rounded-full text-xs font-black transition cursor-pointer ${
                 filterType === tab.id
-                  ? "bg-orange-500 text-white shadow-sm"
+                  ? "bg-orange-500 text-white shadow-md shadow-orange-500/25"
                   : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
               }`}
             >
@@ -498,18 +513,20 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* المحتوى الرئيسي */}
+      {/* 🟢 3. كروت وتفاصيل فيسبوك الأصلية المنسقة */}
       <main className="max-w-lg mx-auto px-4 mt-3 space-y-3">
+        
+        {/* 📸 عند اختيار فلتر الصور */}
         {filterType === "photos" && (
           <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3">
-            <h3 className="font-bold text-xs text-slate-900">جميع الصور ({allUserPhotos.length})</h3>
+            <h3 className="font-black text-xs text-slate-900">جميع الصور ({allUserPhotos.length})</h3>
             {allUserPhotos.length === 0 ? (
-              <p className="text-center text-xs text-slate-400 py-6">لا توجد صور</p>
+              <p className="text-center text-xs font-bold text-slate-400 py-6">لا توجد صور منشورة بعد</p>
             ) : (
               <div className="grid grid-cols-3 gap-2">
                 {allUserPhotos.map((imgUrl, idx) => (
-                  <div key={idx} className="aspect-square rounded-2xl overflow-hidden border border-slate-100 shadow-sm">
-                    <img src={imgUrl} alt="" className="w-full h-full object-cover" />
+                  <div key={idx} className="aspect-square rounded-2xl overflow-hidden border border-slate-100 shadow-sm group">
+                    <img src={imgUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition duration-200" />
                   </div>
                 ))}
               </div>
@@ -517,11 +534,12 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* 🎬 عند اختيار فلتر الريلز */}
         {filterType === "reels" && (
           <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3">
-            <h3 className="font-bold text-xs text-slate-900">مقاطع الريلز ({allUserReels.length})</h3>
+            <h3 className="font-black text-xs text-slate-900">مقاطع الريلز ({allUserReels.length})</h3>
             {allUserReels.length === 0 ? (
-              <p className="text-center text-xs text-slate-400 py-6">لا توجد مقاطع ريلز</p>
+              <p className="text-center text-xs font-bold text-slate-400 py-6">لا توجد مقاطع ريلز منشورة بعد</p>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 {allUserReels.map((reel) => (
@@ -534,116 +552,115 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* 📑 كروت التفاصيل فيسبوك الأصلية */}
         {filterType === "all" && (
           <>
             {/* التفاصيل الشخصية */}
-            {(profile?.location || profile?.birth_date || profile?.relationship_status) && (
-              <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-2.5">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <h3 className="font-bold text-xs text-slate-900">التفاصيل الشخصية</h3>
-                  <button onClick={() => setIsEditOpen(true)} className="text-slate-400 hover:text-orange-500">
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+            <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-2.5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h3 className="font-black text-xs text-slate-900">التفاصيل الشخصية</h3>
+                <button onClick={() => setIsEditOpen(true)} className="text-slate-400 hover:text-orange-500">
+                  <Edit3 className="w-3.5 h-3.5" />
+                </button>
+              </div>
 
-                <div className="space-y-2 text-xs font-medium text-slate-700">
-                  {profile.location && (
-                    <div className="flex items-center gap-2.5">
-                      <MapPin className="w-4 h-4 text-orange-500" />
-                      <span>يقيم في <strong className="text-slate-900">{profile.location}</strong></span>
-                    </div>
-                  )}
-                  {profile.birth_date && (
-                    <div className="flex items-center gap-2.5">
-                      <Calendar className="w-4 h-4 text-orange-500" />
-                      <span>تاريخ الميلاد: <strong className="text-slate-900">{profile.birth_date}</strong></span>
-                    </div>
-                  )}
-                  {profile.relationship_status && (
-                    <div className="flex items-center gap-2.5">
-                      <Heart className="w-4 h-4 text-rose-500" />
-                      <span>الحالة الاجتماعية: <strong className="text-slate-900">{profile.relationship_status}</strong></span>
-                    </div>
-                  )}
+              <div className="space-y-2 text-xs font-bold text-slate-700">
+                <div className="flex items-center gap-2.5">
+                  <MapPin className="w-4 h-4 text-orange-500" />
+                  <span>يقيم في <strong className="text-slate-900">{profile?.location || "غير محدد"}</strong></span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <HomeIcon className="w-4 h-4 text-orange-500" />
+                  <span>من <strong className="text-slate-900">{profile?.location || "غير محدد"}</strong></span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Calendar className="w-4 h-4 text-orange-500" />
+                  <span>تاريخ الميلاد: <strong className="text-slate-900">{profile?.birth_date || "غير محدد"}</strong></span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Heart className="w-4 h-4 text-rose-500" />
+                  <span>الحالة الاجتماعية: <strong className="text-slate-900">{profile?.relationship_status || "غير محدد"}</strong></span>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* التعليم */}
-            {profile?.education && (
-              <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-2.5">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <h3 className="font-bold text-xs text-slate-900">التعليم</h3>
-                  <button onClick={() => setIsEditOpen(true)} className="text-slate-400 hover:text-orange-500">
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <div className="flex items-start gap-2.5 text-xs">
-                  <GraduationCap className="w-5 h-5 text-orange-500 mt-0.5" />
-                  <p className="font-semibold text-slate-900">{profile.education}</p>
+            <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-2.5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h3 className="font-black text-xs text-slate-900">التعليم</h3>
+                <button onClick={() => setIsEditOpen(true)} className="text-slate-400 hover:text-orange-500">
+                  <Edit3 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="flex items-start gap-2.5 text-xs">
+                <GraduationCap className="w-5 h-5 text-orange-500 mt-0.5" />
+                <div>
+                  <p className="font-black text-slate-900">{profile?.education || "لم يتم تحديد المؤهل الدراسي بعد"}</p>
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* الاهتمامات */}
-            {profile?.hobbies && profile.hobbies.length > 0 && (
-              <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-2.5">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <h3 className="font-bold text-xs text-slate-900">الاهتمامات والهوايات</h3>
-                  <button onClick={() => setIsEditOpen(true)} className="text-slate-400 hover:text-orange-500">
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-                  <Activity className="w-4 h-4 text-orange-500" />
-                  <span>{profile.hobbies.join(" • ")}</span>
-                </div>
+            {/* الهوايات */}
+            <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-2.5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h3 className="font-black text-xs text-slate-900">الاهتمامات والهوايات</h3>
+                <button onClick={() => setIsEditOpen(true)} className="text-slate-400 hover:text-orange-500">
+                  <Edit3 className="w-3.5 h-3.5" />
+                </button>
               </div>
-            )}
 
-            {/* الأصدقاء */}
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                <Activity className="w-4 h-4 text-orange-500" />
+                <span>{editHobbies || "لم يتم تحديد هوايات بعد"}</span>
+              </div>
+            </div>
+
+            {/* الأصدقاء الفعليون فقط */}
             <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-xs text-slate-900">الأصدقاء ({friends.length})</h3>
-                {friends.length > 0 && (
-                  <Link href="/friends" className="text-xs font-semibold text-orange-600 hover:underline">
-                    عرض الكل
-                  </Link>
-                )}
+                <h3 className="font-black text-xs text-slate-900">الأصدقاء ({friends.length})</h3>
+                <Link href="/friends" className="text-xs font-bold text-orange-600 hover:underline">
+                  عرض الكل
+                </Link>
               </div>
 
               {friends.length === 0 ? (
-                <p className="text-xs text-slate-400 text-center py-2">لا يوجد أصدقاء</p>
+                <p className="text-xs font-bold text-slate-400 text-center py-2">لا يوجد أصدقاء مضافين حتى الآن</p>
               ) : (
                 <div className="grid grid-cols-4 gap-2 text-center">
                   {friends.slice(0, 4).map((f) => (
-                    <Link key={f.id} href={`/profile/${f.id}`} className="space-y-1 block">
-                      <div className="w-12 h-12 mx-auto rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs border border-orange-500 overflow-hidden">
+                    <Link
+                      key={f.id}
+                      href={`/profile/${f.id}`}
+                      className="space-y-1 block hover:scale-105 transition"
+                    >
+                      <div className="w-12 h-12 mx-auto rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-xs border border-orange-500 overflow-hidden">
                         {f.avatar_url ? (
                           <img src={f.avatar_url} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          f.full_name?.charAt(0).toUpperCase() || ""
+                          f.full_name?.charAt(0).toUpperCase() || "U"
                         )}
                       </div>
-                      <p className="font-semibold text-[10px] text-slate-900 truncate">{f.full_name || ""}</p>
+                      <p className="font-bold text-[10px] text-slate-900 truncate">{f.full_name || ""}</p>
                     </Link>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* إنشاء منشور جديد */}
+            {/* كتابة منشور جديد */}
             <div className="bg-white p-3.5 rounded-3xl border border-slate-100 shadow-sm space-y-2.5">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
-                  {profile?.full_name?.charAt(0).toUpperCase() || ""}
+                <div className="w-8 h-8 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-xs flex-shrink-0">
+                  {profile?.full_name?.charAt(0).toUpperCase() || "U"}
                 </div>
                 <input
                   type="text"
                   value={postText}
                   onChange={(e) => setPostText(e.target.value)}
-                  placeholder="اكتب شيئاً..."
-                  className="flex-1 bg-slate-50 border border-slate-200 rounded-full px-3.5 py-2 text-xs font-medium focus:outline-none focus:border-orange-500"
+                  placeholder="بم تفكر الآن؟"
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-full px-3.5 py-2 text-xs font-bold focus:outline-none focus:border-orange-500"
                 />
                 <label className="cursor-pointer text-slate-500 hover:text-orange-500 p-1">
                   <ImageIcon className="w-5 h-5 text-emerald-500" />
@@ -680,12 +697,12 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={() => setFilterType("reels")}
-                  className="flex items-center justify-center gap-1 text-xs font-semibold text-slate-700 py-1 hover:bg-slate-50 rounded-xl"
+                  className="flex items-center justify-center gap-1 text-xs font-bold text-slate-700 py-1 hover:bg-slate-50 rounded-xl"
                 >
                   <Video className="w-4 h-4 text-orange-500" />
-                  <span>ريلز</span>
+                  <span>ريلز (Reel)</span>
                 </button>
-                <button type="button" className="flex items-center justify-center gap-1 text-xs font-semibold text-slate-700 py-1 hover:bg-slate-50 rounded-xl">
+                <button type="button" className="flex items-center justify-center gap-1 text-xs font-bold text-slate-700 py-1 hover:bg-slate-50 rounded-xl">
                   <Radio className="w-4 h-4 text-red-500" />
                   <span>بث مباشر</span>
                 </button>
@@ -696,42 +713,43 @@ export default function ProfilePage() {
                   type="button"
                   onClick={handleCreatePost}
                   disabled={isPosting}
-                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-xl text-xs transition"
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 rounded-xl text-xs transition shadow-sm shadow-orange-500/20"
                 >
-                  {isPosting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "نشر"}
+                  {isPosting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "نشر الآن"}
                 </button>
               )}
             </div>
 
-            {/* فيد المنشورات */}
+            {/* فيد المنشورات الفعلي */}
             <div className="space-y-3 pt-1">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold text-xs text-slate-900">المنشورات ({posts.length})</h3>
+                <h3 className="font-black text-xs text-slate-900">المنشورات ({posts.length})</h3>
+                <span className="text-[11px] font-bold text-orange-600 cursor-pointer">إدارة المنشورات</span>
               </div>
 
               {posts.length === 0 ? (
                 <div className="bg-white p-8 rounded-3xl border border-slate-100 text-center shadow-sm">
-                  <p className="text-xs text-slate-400">لا توجد منشورات</p>
+                  <p className="text-xs font-bold text-slate-400">لا توجد منشورات منشورة حتى الآن</p>
                 </div>
               ) : (
                 posts.map((post) => (
                   <div key={post.id} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 space-y-2.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xs border border-orange-500 overflow-hidden">
+                        <div className="w-9 h-9 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-xs border border-orange-500 overflow-hidden">
                           {profile?.avatar_url && profile.avatar_type !== "video" ? (
                             <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
                           ) : (
-                            profile?.full_name?.charAt(0).toUpperCase() || ""
+                            profile?.full_name?.charAt(0).toUpperCase() || "U"
                           )}
                         </div>
                         <div>
                           <div className="flex items-center gap-1">
-                            <h4 className="font-bold text-xs text-slate-900">{profile?.full_name || ""}</h4>
+                            <h4 className="font-black text-xs text-slate-900">{profile?.full_name || ""}</h4>
                             {profile?.is_verified && <BadgeCheck className="w-3.5 h-3.5 text-orange-500" />}
                           </div>
-                          <span className="text-[10px] text-slate-400">
-                            {new Date(post.created_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
+                          <span className="text-[10px] font-bold text-slate-400">
+                            {new Date(post.created_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })} • 🌐
                           </span>
                         </div>
                       </div>
@@ -741,7 +759,7 @@ export default function ProfilePage() {
                       </button>
                     </div>
 
-                    {post.content && <p className="text-xs font-normal text-slate-800 leading-relaxed">{post.content}</p>}
+                    {post.content && <p className="text-xs font-medium text-slate-800 leading-relaxed">{post.content}</p>}
 
                     {post.media_urls && post.media_urls.length > 0 && (
                       <div className="rounded-2xl overflow-hidden border border-slate-100">
@@ -753,7 +771,7 @@ export default function ProfilePage() {
                       </div>
                     )}
 
-                    <div className="flex items-center justify-around pt-2 text-slate-600 text-xs font-semibold border-t border-slate-100">
+                    <div className="flex items-center justify-around pt-2 text-slate-600 text-xs font-bold border-t border-slate-100">
                       <button className="flex items-center gap-1 hover:text-orange-600"><ThumbsUp className="w-3.5 h-3.5" /> إعجاب</button>
                       <button className="flex items-center gap-1 hover:text-orange-600"><MessageCircle className="w-3.5 h-3.5" /> تعليق</button>
                       <button className="flex items-center gap-1 hover:text-orange-600"><Share2 className="w-3.5 h-3.5" /> مشاركة</button>
@@ -764,20 +782,21 @@ export default function ProfilePage() {
             </div>
           </>
         )}
+
       </main>
 
-      {/* نافذة تعديل البروفايل */}
+      {/* 🟢 4. نافذة تعديل البروفايل */}
       {isEditOpen && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-3.5 shadow-2xl text-right max-h-[85vh] overflow-y-auto">
+          <div className="bg-white rounded-3xl p-5 w-full max-w-sm space-y-3.5 shadow-2xl text-right max-h-[85vh] overflow-y-auto no-scrollbar">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <h3 className="font-bold text-sm text-slate-900">تعديل الملف الشخصي</h3>
+              <h3 className="font-black text-sm text-slate-900">تعديل الملف الشخصي</h3>
               <button onClick={() => setIsEditOpen(false)} className="text-slate-400 hover:text-slate-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveProfile} className="space-y-3 text-xs font-semibold">
+            <form onSubmit={handleSaveProfile} className="space-y-3 text-xs font-bold">
               <div>
                 <label className="text-slate-600 block mb-1">الاسم الكامل</label>
                 <input
@@ -785,7 +804,7 @@ export default function ProfilePage() {
                   required
                   value={editFullName}
                   onChange={(e) => setEditFullName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-medium focus:outline-none focus:border-orange-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-bold focus:outline-none focus:border-orange-500"
                 />
               </div>
 
@@ -795,7 +814,8 @@ export default function ProfilePage() {
                   rows={2}
                   value={editBio}
                   onChange={(e) => setEditBio(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-medium focus:outline-none focus:border-orange-500 resize-none"
+                  placeholder="اكتب شيئاً عن نفسك..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-bold focus:outline-none focus:border-orange-500 resize-none"
                 />
               </div>
 
@@ -805,7 +825,8 @@ export default function ProfilePage() {
                   type="text"
                   value={editLocation}
                   onChange={(e) => setEditLocation(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-medium focus:outline-none focus:border-orange-500"
+                  placeholder="مثال: الجيزة، مصر"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-bold focus:outline-none focus:border-orange-500"
                 />
               </div>
 
@@ -815,7 +836,8 @@ export default function ProfilePage() {
                   type="text"
                   value={editEducation}
                   onChange={(e) => setEditEducation(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-medium focus:outline-none focus:border-orange-500"
+                  placeholder="المؤهل الدراسي أو الكلية"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-bold focus:outline-none focus:border-orange-500"
                 />
               </div>
 
@@ -825,7 +847,8 @@ export default function ProfilePage() {
                   type="text"
                   value={editRelationship}
                   onChange={(e) => setEditRelationship(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-medium focus:outline-none focus:border-orange-500"
+                  placeholder="مثال: أعزب"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-bold focus:outline-none focus:border-orange-500"
                 />
               </div>
 
@@ -835,7 +858,7 @@ export default function ProfilePage() {
                   type="date"
                   value={editBirthDate}
                   onChange={(e) => setEditBirthDate(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-medium focus:outline-none focus:border-orange-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-bold focus:outline-none focus:border-orange-500"
                 />
               </div>
 
@@ -845,14 +868,15 @@ export default function ProfilePage() {
                   type="text"
                   value={editHobbies}
                   onChange={(e) => setEditHobbies(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-medium focus:outline-none focus:border-orange-500"
+                  placeholder="مثال: القراءة • البرمجة • الموسيقى"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs font-bold focus:outline-none focus:border-orange-500"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isSaving}
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-2xl text-xs transition shadow-sm mt-2 cursor-pointer"
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-2xl text-xs transition shadow-md shadow-orange-500/20 mt-2 cursor-pointer"
               >
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "حفظ التعديلات"}
               </button>
@@ -860,6 +884,7 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
