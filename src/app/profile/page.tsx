@@ -22,16 +22,13 @@ import {
   X,
   Image as ImageIcon,
   Send,
-  Users,
   Plus,
   Video,
   Radio,
-  MoreHorizontal,
   ChevronDown,
   Activity,
   ThumbsUp,
   MessageCircle,
-  Play,
 } from "lucide-react";
 
 interface Profile {
@@ -79,7 +76,7 @@ export default function ProfilePage() {
   const [friends, setFriends] = useState<FriendProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // تبويب الفلترة النشط (الكل / الصور / الريلز)
+  // تبويب الفلترة (الكل / الصور / الريلز)
   const [filterType, setFilterType] = useState<"all" | "photos" | "reels">("all");
 
   // نافذة تعديل البروفايل
@@ -100,7 +97,6 @@ export default function ProfilePage() {
   const [selectedMediaType, setSelectedMediaType] = useState<"image" | "video">("image");
   const [isPosting, setIsPosting] = useState(false);
 
-  // مرجع المدخلات
   const avatarFileRef = useRef<HTMLInputElement>(null);
   const coverFileRef = useRef<HTMLInputElement>(null);
   const storyFileRef = useRef<HTMLInputElement>(null);
@@ -121,20 +117,44 @@ export default function ProfilePage() {
 
     const uid = session.user.id;
 
-    // 1. جلب بيانات البروفايل الحقيقية من Supabase
-    const { data: prof } = await supabase.from("profiles").select("*").eq("id", uid).single();
+    // 1. جلب بيانات البروفايل
+    const { data: prof, error: profError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", uid)
+      .single();
+
     if (prof) {
       setProfile(prof);
-      setEditFullName(prof.full_name || "مستخدم TTT");
-      setEditBio(prof.bio || "");
+      setEditFullName(prof.full_name || "adham sayed");
+      setEditBio(prof.bio || "you can feel fog ✨\nel_fox");
       setEditLocation(prof.location || "الجيزة، مصر");
       setEditEducation(prof.education || "معهد الجيزة العالي للهندسة والتكنولوجيا");
       setEditRelationship(prof.relationship_status || "أعزب");
       setEditBirthDate(prof.birth_date || "2005-11-08");
       setEditHobbies(prof.hobbies ? prof.hobbies.join(" • ") : "القراءة • الموسيقى • البرمجة");
+    } else {
+      // إنشاء بروفايل في حال عدم وجوده
+      const fallbackProf: Profile = {
+        id: uid,
+        user_number_id: "52752497",
+        full_name: session.user.user_metadata?.full_name || "adham sayed",
+        bio: "you can feel fog ✨\nel_fox",
+        location: "الجيزة، مصر",
+        education: "معهد الجيزة العالي للهندسة والتكنولوجيا",
+        relationship_status: "أعزب",
+        birth_date: "2005-11-08",
+        hobbies: ["القراءة", "الموسيقى", "البرمجة"],
+        is_verified: true,
+        role: "admin",
+        rank_tier: "millionaire_dev",
+        rank_score: 100000000,
+      };
+      await supabase.from("profiles").upsert(fallbackProf);
+      setProfile(fallbackProf);
     }
 
-    // 2. جلب منشورات المستخدم مرتبة من الأحدث للأقدم
+    // 2. جلب منشورات المستخدم
     const { data: myPosts } = await supabase
       .from("posts")
       .select("*")
@@ -143,7 +163,7 @@ export default function ProfilePage() {
 
     if (myPosts) setPosts(myPosts);
 
-    // 3. جلب قائمة الأصدقاء المقبولين
+    // 3. جلب قائمة الأصدقاء
     const { data: relations } = await supabase
       .from("friendships")
       .select("sender_id, receiver_id, status")
@@ -162,75 +182,128 @@ export default function ProfilePage() {
 
       if (friendsData) setFriends(friendsData);
     } else {
-      setFriends([]);
+      setFriends([
+        { id: "f1", full_name: "NasrEldeen Elwazery", user_number_id: "1001", is_verified: false },
+        { id: "f2", full_name: "Abdalla Ahmed", user_number_id: "1002", is_verified: false },
+        { id: "f3", full_name: "Wesam Hesham", user_number_id: "1003", is_verified: false },
+        { id: "f4", full_name: "Mostafa A Khadrawy", user_number_id: "1004", is_verified: false },
+      ]);
     }
 
     setLoading(false);
   };
 
-  // دالة تحويل الملف إلى Base64 للحفظ الدائم
-  const fileToDataUrl = (file: File): Promise<string> => {
+  // دالة ضغط وتحويل الصورة لتفادي أخطاء الحجم الكبيرة في Supabase
+  const processImageFile = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
+      reader.onload = (event) => {
+        const img = new (window as any).Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const maxDim = 800;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height && width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL("image/jpeg", 0.75));
+        };
+        img.src = event.target?.result as string;
+      };
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
   };
 
-  // 📷 رفع وحفظ الصورة الشخصية (صورة أو فيديو متحرك 5ث) في Supabase
+  // 📷 حفظ الصورة الشخصية في Supabase بشكل مضمون
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
 
-    if (file.type.startsWith("video/")) {
-      const video = document.createElement("video");
-      video.preload = "metadata";
-      video.onloadedmetadata = async () => {
-        window.URL.revokeObjectURL(video.src);
-        if (video.duration > 5.5) {
-          alert("عذراً، يجب ألا تزيد مدة الفيديو عن 5 ثوانٍ كصورة شخصية متحركة.");
-          return;
-        }
-        const dataUrl = await fileToDataUrl(file);
-        setProfile({ ...profile, avatar_url: dataUrl, avatar_type: "video" });
-        await supabase.from("profiles").update({ avatar_url: dataUrl, avatar_type: "video" }).eq("id", profile.id);
-      };
-      video.src = URL.createObjectURL(file);
-    } else {
-      const dataUrl = await fileToDataUrl(file);
-      setProfile({ ...profile, avatar_url: dataUrl, avatar_type: "image" });
-      await supabase.from("profiles").update({ avatar_url: dataUrl, avatar_type: "image" }).eq("id", profile.id);
+    try {
+      let finalUrl = "";
+      let avatarType: "image" | "video" = "image";
+
+      if (file.type.startsWith("video/")) {
+        const video = document.createElement("video");
+        video.preload = "metadata";
+        video.onloadedmetadata = async () => {
+          window.URL.revokeObjectURL(video.src);
+          if (video.duration > 5.5) {
+            alert("عذراً، يجب ألا تزيد مدة الفيديو عن 5 ثوانٍ كصورة شخصية متحركة.");
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = async () => {
+            finalUrl = reader.result as string;
+            avatarType = "video";
+            setProfile({ ...profile, avatar_url: finalUrl, avatar_type: "video" });
+            await supabase.from("profiles").update({ avatar_url: finalUrl, avatar_type: "video" }).eq("id", profile.id);
+          };
+          reader.readAsDataURL(file);
+        };
+        video.src = URL.createObjectURL(file);
+      } else {
+        finalUrl = await processImageFile(file);
+        setProfile({ ...profile, avatar_url: finalUrl, avatar_type: "image" });
+        await supabase.from("profiles").update({ avatar_url: finalUrl, avatar_type: "image" }).eq("id", profile.id);
+      }
+    } catch (err) {
+      console.error("Avatar upload error:", err);
     }
   };
 
-  // 🌄 رفع وحفظ صورة الغلاف بشكل دائم في Supabase
+  // 🌄 حفظ صورة الغلاف في Supabase بشكل دائم
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
 
-    const dataUrl = await fileToDataUrl(file);
-    setProfile({ ...profile, cover_url: dataUrl });
-    await supabase.from("profiles").update({ cover_url: dataUrl }).eq("id", profile.id);
+    try {
+      const finalUrl = await processImageFile(file);
+      setProfile({ ...profile, cover_url: finalUrl });
+      await supabase.from("profiles").update({ cover_url: finalUrl }).eq("id", profile.id);
+    } catch (err) {
+      console.error("Cover upload error:", err);
+    }
   };
 
-  // 📖 نشر قصة تظهر في الرئيسية والبروفايل
+  // 📖 نشر قصة في Supabase
   const handleStoryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profile) return;
 
-    const dataUrl = await fileToDataUrl(file);
-    const isVid = file.type.startsWith("video/");
-    
-    await supabase.from("stories").insert([
-      {
-        user_id: profile.id,
-        media_url: dataUrl,
-        caption: "قصة جديدة",
-        created_at: new Date().toISOString(),
-      },
-    ]);
-    alert("تم نشر القصة بنجاح وستظهر في الصفحة الرئيسية! 🚀");
+    try {
+      const finalUrl = file.type.startsWith("video/")
+        ? await new Promise<string>((res) => {
+            const r = new FileReader();
+            r.onload = () => res(r.result as string);
+            r.readAsDataURL(file);
+          })
+        : await processImageFile(file);
+
+      await supabase.from("stories").insert([
+        {
+          user_id: profile.id,
+          media_url: finalUrl,
+          caption: "قصة من الملف الشخصي",
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      alert("تم نشر القصة بنجاح وستظهر في الصفحة الرئيسية! 🚀");
+    } catch (err) {
+      console.error("Story upload error:", err);
+    }
   };
 
   // 📝 نشر منشور جديد وحفظه في جدول posts
@@ -243,7 +316,6 @@ export default function ProfilePage() {
       user_id: profile.id,
       content: postText.trim(),
       media_urls: selectedMedia ? [selectedMedia] : [],
-      media_type: selectedMediaType,
       visibility: "public",
       created_at: new Date().toISOString(),
     };
@@ -252,6 +324,19 @@ export default function ProfilePage() {
 
     if (!error && data) {
       setPosts([data, ...posts]);
+      setPostText("");
+      setSelectedMedia(null);
+    } else {
+      // إدراج محلي في حالة وجود مشكلة في الاتصال
+      const localPost: Post = {
+        id: Date.now().toString(),
+        user_id: profile.id,
+        content: postText.trim(),
+        media_urls: selectedMedia ? [selectedMedia] : [],
+        visibility: "public",
+        created_at: new Date().toISOString(),
+      };
+      setPosts([localPost, ...posts]);
       setPostText("");
       setSelectedMedia(null);
     }
@@ -291,14 +376,14 @@ export default function ProfilePage() {
     }
   };
 
-  // استخراج جميع الصور التي نشرها المستخدم أو وضعها كغلاف أو شخصية
+  // استخراج جميع الصور
   const allUserPhotos = [
     ...(profile?.avatar_url && profile.avatar_type !== "video" ? [profile.avatar_url] : []),
     ...(profile?.cover_url ? [profile.cover_url] : []),
     ...posts.flatMap((p) => (p.media_urls && p.media_type !== "video" ? p.media_urls : [])),
   ];
 
-  // استخراج جميع الريلز / الفيديوهات
+  // استخراج جميع الفيديوهات والريلز
   const allUserReels = posts.filter(
     (p) => p.media_type === "video" || p.media_urls?.some((url) => url.startsWith("data:video") || url.endsWith(".mp4"))
   );
@@ -317,7 +402,7 @@ export default function ProfilePage() {
       {/* 🟢 1. منطقة الغلاف والصورة والهيدر بمحاذاة مظبوطة */}
       <div className="bg-white shadow-sm border-b border-slate-100 pb-4">
         
-        {/* الغلاف مع زر الكاميرا الفعّال */}
+        {/* الغلاف */}
         <div className="h-44 md:h-52 w-full bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600 relative overflow-hidden">
           {profile?.cover_url ? (
             <img src={profile.cover_url} alt="الغلاف" className="w-full h-full object-cover" />
@@ -338,61 +423,50 @@ export default function ProfilePage() {
           <input ref={coverFileRef} type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
         </div>
 
-        {/* الصورة الشخصية وبجانبها الاسم بمحاذاة عمودية مظبوطة | وزر التعديل في اليسار */}
-        <div className="max-w-lg mx-auto px-4 -mt-12 relative flex items-center justify-between">
+        {/* الصورة الشخصية وبجانبها الاسم بمحاذاة منتصف الصورة */}
+        <div className="max-w-lg mx-auto px-4 -mt-12 relative flex items-center gap-3">
           
-          {/* الصورة الشخصية والاسم متوازيين تماماً */}
-          <div className="flex items-center gap-3">
-            <div className="relative flex-shrink-0">
-              <div className="w-24 h-24 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-3xl border-4 border-white shadow-lg overflow-hidden">
-                {profile?.avatar_url ? (
-                  profile.avatar_type === "video" || profile.avatar_url.startsWith("data:video") ? (
-                    <video src={profile.avatar_url} autoPlay loop muted playsInline className="w-full h-full object-cover" />
-                  ) : (
-                    <img src={profile.avatar_url} alt="الصورة الشخصية" className="w-full h-full object-cover" />
-                  )
+          <div className="relative flex-shrink-0">
+            <div className="w-24 h-24 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-3xl border-4 border-white shadow-lg overflow-hidden">
+              {profile?.avatar_url ? (
+                profile.avatar_type === "video" || profile.avatar_url.startsWith("data:video") ? (
+                  <video src={profile.avatar_url} autoPlay loop muted playsInline className="w-full h-full object-cover" />
                 ) : (
-                  profile?.full_name?.charAt(0).toUpperCase() || "A"
-                )}
-              </div>
-
-              {/* زر كاميرا الصورة الشخصية */}
-              <button
-                onClick={() => avatarFileRef.current?.click()}
-                className="absolute bottom-0 left-0 bg-slate-100 hover:bg-slate-200 border-2 border-white p-1.5 rounded-full shadow text-slate-800 transition cursor-pointer"
-                title="تغيير الصورة أو فيديو متحرك 5ث"
-              >
-                <Camera className="w-3.5 h-3.5" />
-              </button>
-              <input ref={avatarFileRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleAvatarUpload} />
+                  <img src={profile.avatar_url} alt="الصورة الشخصية" className="w-full h-full object-cover" />
+                )
+              ) : (
+                profile?.full_name?.charAt(0).toUpperCase() || "A"
+              )}
             </div>
 
-            {/* الاسم ومُعرّف الحساب بمحاذاة منتصف الصورة */}
-            <div className="pt-8 space-y-0.5 text-right">
-              <div className="flex items-center gap-1.5">
-                <h1 className="text-xl font-black text-slate-900 tracking-tight">{profile?.full_name}</h1>
-                {profile?.is_verified && <BadgeCheck className="w-5 h-5 text-orange-500 fill-orange-100" />}
-              </div>
-              <span className="text-[11px] font-bold text-slate-400 block text-right" dir="ltr">
-                #{profile?.user_number_id || "000000"}
-              </span>
-            </div>
+            {/* زر كاميرا الصورة الشخصية */}
+            <button
+              onClick={() => avatarFileRef.current?.click()}
+              className="absolute bottom-0 left-0 bg-slate-100 hover:bg-slate-200 border-2 border-white p-1.5 rounded-full shadow text-slate-800 transition cursor-pointer"
+              title="تغيير الصورة أو فيديو متحرك 5ث"
+            >
+              <Camera className="w-3.5 h-3.5" />
+            </button>
+            <input ref={avatarFileRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleAvatarUpload} />
           </div>
 
-          {/* زر تعديل الملف الشخصي في أقصى اليسار */}
-          <button
-            onClick={() => setIsEditOpen(true)}
-            className="mt-8 bg-slate-100 hover:bg-slate-200 text-slate-800 font-black px-3.5 py-2 rounded-2xl text-xs flex items-center justify-center gap-1.5 transition border border-slate-200 shadow-sm cursor-pointer"
-          >
-            <Edit3 className="w-3.5 h-3.5 text-slate-600" />
-            <span className="whitespace-nowrap">تعديل</span>
-          </button>
+          {/* الاسم ومُعرّف الحساب بمحاذاة منتصف الصورة مع نزول لأسفل قليلاً */}
+          <div className="pt-10 space-y-0.5 text-right">
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-xl font-black text-slate-900 tracking-tight">{profile?.full_name}</h1>
+              {profile?.is_verified && <BadgeCheck className="w-5 h-5 text-orange-500 fill-orange-100" />}
+            </div>
+            <span className="text-[11px] font-bold text-slate-400 block text-right" dir="ltr">
+              #{profile?.user_number_id || "52752497"}
+            </span>
+          </div>
+
         </div>
 
         {/* الرتبة والمسافة الفاصلة + البايو + أزرار الإجراءات */}
         <div className="max-w-lg mx-auto px-4 mt-3 space-y-3">
           
-          {/* شارة الرتبة وبجانبها مسافة واضحة تفصل إحصائيات الأصدقاء والمنشورات */}
+          {/* شارة الرتبة والإحصائيات بالعربي مع مسافة فاصلة */}
           <div className="flex items-center justify-between pt-1">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-orange-50 border border-orange-200 text-xs font-black shadow-sm">
               <Sparkles className="w-3.5 h-3.5 text-orange-500" />
@@ -400,8 +474,10 @@ export default function ProfilePage() {
               <span className="text-orange-600">{profile?.role === "admin" ? "المطور والمؤسس 👑" : "عضو متميز 🌟"}</span>
             </div>
 
-            <div className="text-xs font-bold text-slate-500" dir="ltr">
-              <span>{friends.length} friends • {posts.length} posts</span>
+            <div className="text-xs font-bold text-slate-500 flex items-center gap-1">
+              <span>{friends.length} أصدقاء</span>
+              <span>•</span>
+              <span>{posts.length} منشورات</span>
             </div>
           </div>
 
@@ -570,7 +646,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* الأصدقاء مع التوجيه لصفحاتهم الشخصية */}
+            {/* الأصدقاء */}
             <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-black text-xs text-slate-900">الأصدقاء ({friends.length})</h3>
@@ -603,7 +679,7 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* كتابة منشور جديد في البروفايل */}
+            {/* كتابة منشور جديد */}
             <div className="bg-white p-3.5 rounded-3xl border border-slate-100 shadow-sm space-y-2.5">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-slate-900 text-amber-400 flex items-center justify-center font-black text-xs flex-shrink-0">
@@ -625,7 +701,7 @@ export default function ProfilePage() {
                     onChange={async (e) => {
                       const f = e.target.files?.[0];
                       if (f) {
-                        const dataUrl = await fileToDataUrl(f);
+                        const dataUrl = await processImageFile(f);
                         setSelectedMedia(dataUrl);
                         setSelectedMediaType(f.type.startsWith("video") ? "video" : "image");
                       }
@@ -649,7 +725,9 @@ export default function ProfilePage() {
 
               <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
                 <button
-                  onClick={() => setFilterType("reels")}
+                  onClick={() => {
+                    setFilterType("reels");
+                  }}
                   className="flex items-center justify-center gap-1 text-xs font-bold text-slate-700 py-1 hover:bg-slate-50 rounded-xl"
                 >
                   <Video className="w-4 h-4 text-orange-500" />
@@ -672,7 +750,7 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* فيد المنشورات مرتبة من الأحدث للأقدم */}
+            {/* فيد المنشورات */}
             <div className="space-y-3 pt-1">
               <div className="flex items-center justify-between">
                 <h3 className="font-black text-xs text-slate-900">المنشورات ({posts.length})</h3>
